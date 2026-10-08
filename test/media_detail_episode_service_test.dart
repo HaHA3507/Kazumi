@@ -1,13 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kazumi/modules/media/media_detail.dart';
 import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/media/media_rule.dart';
-import 'package:kazumi/modules/media/media_type.dart';
-import 'package:kazumi/plugins/api_rule_config.dart';
 import 'package:kazumi/services/media/media_detail_service.dart';
 import 'package:kazumi/services/media/media_episode_service.dart';
 import 'package:kazumi/services/media/media_rule_engine.dart';
-import 'package:kazumi/services/media/media_rule_models.dart';
 import 'package:kazumi/services/plugin/rule_engine.dart';
 import 'package:kazumi/services/plugin/rule_engine_models.dart';
 import 'package:dio/dio.dart';

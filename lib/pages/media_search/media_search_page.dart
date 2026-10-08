@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/card/media_card.dart';
-import 'package:kazumi/modules/media/media_item.dart';
-import 'package:kazumi/modules/media/media_rule.dart';
-import 'package:kazumi/modules/media/media_type.dart';
-import 'package:kazumi/plugins/plugins.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:kazumi/services/media/media_deduplicator.dart';
 import 'package:kazumi/services/media/media_search_service.dart';

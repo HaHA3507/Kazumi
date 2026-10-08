@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kazumi/services/media/media_deduplicator.dart';
 import 'package:kazumi/modules/media/media_item.dart';
-import 'package:kazumi/modules/media/media_type.dart';
 
 void main() {
   group('MediaDeduplicator', () {

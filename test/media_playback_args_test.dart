@@ -1,9 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/media/media_detail.dart';
 import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/media/media_type.dart';
-import 'package:kazumi/modules/roads/road_module.dart';
 import 'package:kazumi/pages/video/media_playback_args.dart';
 import 'package:kazumi/pages/video/video_playback_args.dart';
 import 'package:kazumi/plugins/plugins.dart';
@@ -198,7 +196,7 @@ void main() {
         episodeGroups: episodeGroups,
       );
 
-      final videoArgs = args.toVideoPlaybackArgs()! as OnlineVideoPlaybackArgs;
+      final videoArgs = args.toVideoPlaybackArgs()!;
 
       expect(videoArgs.roads, hasLength(2));
       expect(videoArgs.roads[0].name, '线路1');

@@ -151,7 +151,7 @@ class History {
 
   /// Episode name for the last watched episode, falling back to a default.
   String get displayEpisodeName =>
-      lastWatchEpisodeName.isNotEmpty ? lastWatchEpisodeName : '第${lastWatchEpisode}集';
+      lastWatchEpisodeName.isNotEmpty ? lastWatchEpisodeName : '第$lastWatchEpisode集';
 
   /// Progress fraction (0.0 – 1.0) for the last watched episode.
   /// Returns 0 when no progress is recorded.

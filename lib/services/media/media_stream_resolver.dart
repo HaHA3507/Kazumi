@@ -4,7 +4,6 @@ import 'package:html/dom.dart';
 import 'package:html/parser.dart';
 import 'package:kazumi/modules/media/media_rule.dart';
 import 'package:kazumi/modules/media/media_stream.dart';
-import 'package:kazumi/plugins/api_rule_config.dart';
 import 'package:kazumi/request/clients/plugin_site_client.dart';
 import 'package:kazumi/services/media/media_rule_models.dart';
 import 'package:kazumi/services/video_source/video_source_service.dart';

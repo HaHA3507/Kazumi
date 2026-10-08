@@ -3,7 +3,6 @@ import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/collect/collect_module.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
 import 'package:kazumi/modules/history/history_module.dart';
-import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/media/media_type.dart';
 
 void main() {
