@@ -1,0 +1,235 @@
+name: Flutter Dev Build
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ============================================================
+  # Flutter Test
+  # ============================================================
+  flutter-test:
+    name: Flutter Test
+    runs-on: ubuntu-latest
+
+    steps:
+      # --------------------------------------------------------
+      # Checkout
+      # --------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------
+      # Setup Flutter
+      #
+      # Flutter version is read from pubspec.yaml
+      # Same approach as the original Kazumi workflow.
+      # --------------------------------------------------------
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2.16.0
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      # --------------------------------------------------------
+      # Flutter Pub Get
+      # --------------------------------------------------------
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      # --------------------------------------------------------
+      # Flutter Analyze
+      # --------------------------------------------------------
+      - name: Flutter Analyze
+        run: flutter analyze --no-fatal-infos --fatal-warnings
+
+      # --------------------------------------------------------
+      # Flutter Test
+      # --------------------------------------------------------
+      - name: Flutter Test
+        run: flutter test
+
+
+  # ============================================================
+  # Android Build
+  # ============================================================
+  flutter-build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    needs:
+      - flutter-test
+
+    steps:
+      # --------------------------------------------------------
+      # Checkout
+      # --------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------
+      # Setup Flutter
+      # --------------------------------------------------------
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2.16.0
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      # --------------------------------------------------------
+      # Setup Java 17
+      #
+      # Required by modern Android Gradle builds.
+      # --------------------------------------------------------
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      # --------------------------------------------------------
+      # Flutter Pub Get
+      # --------------------------------------------------------
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      # --------------------------------------------------------
+      # Build Android APK
+      #
+      # Produces:
+      #   app-arm64-v8a-release.apk
+      #   app-armeabi-v7a-release.apk
+      #   app-x86_64-release.apk
+      # --------------------------------------------------------
+      - name: Build Android APK
+        run: |
+          flutter build apk \
+            --release \
+            --split-per-abi
+
+      # --------------------------------------------------------
+      # List build artifacts
+      # --------------------------------------------------------
+      - name: List Android Build Output
+        run: |
+          ls -lah build/app/outputs/flutter-apk/
+
+      # --------------------------------------------------------
+      # Upload Android APK
+      # --------------------------------------------------------
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: |
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            build/app/outputs/flutter-apk/app-x86_64-release.apk
+          if-no-files-found: error
+          retention-days: 7
+
+
+  # ============================================================
+  # iOS Build
+  # ============================================================
+  flutter-build-ios:
+    name: Build iOS IPA
+    runs-on: macos-latest
+
+    needs:
+      - flutter-test
+
+    steps:
+      # --------------------------------------------------------
+      # Checkout
+      # --------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------
+      # Setup Flutter
+      # --------------------------------------------------------
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2.16.0
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      # --------------------------------------------------------
+      # Flutter Pub Get
+      # --------------------------------------------------------
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      # --------------------------------------------------------
+      # Build iOS App
+      #
+      # No Apple signing is performed here.
+      #
+      # Output:
+      #   build/ios/iphoneos/Runner.app
+      # --------------------------------------------------------
+      - name: Build iOS
+        run: |
+          flutter build ios \
+            --release \
+            --no-codesign
+
+      # --------------------------------------------------------
+      # Check iOS build output
+      # --------------------------------------------------------
+      - name: Check iOS Build Output
+        run: |
+          ls -lah build/ios/iphoneos/
+          test -d build/ios/iphoneos/Runner.app
+
+      # --------------------------------------------------------
+      # Create IPA
+      #
+      # IPA structure:
+      #
+      #   Kazumi-ios-dev.ipa
+      #   └── Payload/
+      #       └── Runner.app/
+      #
+      # This IPA is NOT Apple signed.
+      # It is used to verify the iOS build/package.
+      # --------------------------------------------------------
+      - name: Package iOS IPA
+        run: |
+          rm -rf Payload
+          mkdir -p Payload
+
+          cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
+
+          zip -r Kazumi-ios-dev.ipa Payload
+
+      # --------------------------------------------------------
+      # Check IPA
+      # --------------------------------------------------------
+      - name: Check IPA
+        run: |
+          ls -lh Kazumi-ios-dev.ipa
+          unzip -l Kazumi-ios-dev.ipa | head -50
+
+      # --------------------------------------------------------
+      # Upload IPA
+      # --------------------------------------------------------
+      - name: Upload iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: Kazumi-ios-dev.ipa
+          if-no-files-found: error
+          retention-days: 7
