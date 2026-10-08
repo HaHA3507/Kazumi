@@ -48,6 +48,11 @@ class Plugin {
   ApiChapterConfig chapterApiConfig;
   AntiCrawlerConfig antiCrawlerConfig;
 
+  /// Whether this source is active in multi-rule search.
+  /// Defaults to true for backward compatibility (existing rules predate
+  /// this field and are always enabled).
+  bool enabled;
+
   Plugin({
     required this.api,
     required this.type,
@@ -73,6 +78,7 @@ class Plugin {
     ApiSearchConfig? searchApiConfig,
     ApiChapterConfig? chapterApiConfig,
     AntiCrawlerConfig? antiCrawlerConfig,
+    this.enabled = true,
   })  : searchApiConfig = searchApiConfig ?? ApiSearchConfig(),
         chapterApiConfig = chapterApiConfig ?? ApiChapterConfig(),
         antiCrawlerConfig = antiCrawlerConfig ?? AntiCrawlerConfig.empty();
@@ -115,6 +121,7 @@ class Plugin {
               Map<String, dynamic>.from(json['antiCrawlerConfig']),
             )
           : AntiCrawlerConfig.empty(),
+      enabled: json['enabled'] as bool? ?? true,
     );
   }
 
@@ -178,6 +185,7 @@ class Plugin {
           chapterApiConfig.request.url.isNotEmpty)
         'chapterApiConfig': chapterApiConfig.toJson(),
       'antiCrawlerConfig': antiCrawlerConfig.toJson(),
+      if (!enabled) 'enabled': false,
     };
   }
 

@@ -144,17 +144,17 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
           NavigationDestination(
             selectedIcon: Icon(Icons.home),
             icon: Icon(Icons.home_outlined),
-            label: '推荐',
+            label: '首页',
           ),
           NavigationDestination(
-            selectedIcon: Icon(Icons.timeline),
-            icon: Icon(Icons.timeline_outlined),
-            label: '时间表',
+            selectedIcon: Icon(Icons.library_books),
+            icon: Icon(Icons.library_books_outlined),
+            label: '媒体库',
           ),
           NavigationDestination(
-            selectedIcon: Icon(Icons.favorite),
-            icon: Icon(Icons.favorite_outlined),
-            label: '追番',
+            selectedIcon: Icon(Icons.history),
+            icon: Icon(Icons.history_outlined),
+            label: '历史',
           ),
           NavigationDestination(
             selectedIcon: Icon(Icons.settings),
@@ -192,17 +192,17 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
                 NavigationRailDestination(
                   selectedIcon: Icon(Icons.home),
                   icon: Icon(Icons.home_outlined),
-                  label: Text('推荐'),
+                  label: Text('首页'),
                 ),
                 NavigationRailDestination(
-                  selectedIcon: Icon(Icons.timeline),
-                  icon: Icon(Icons.timeline_outlined),
-                  label: Text('时间表'),
+                  selectedIcon: Icon(Icons.library_books),
+                  icon: Icon(Icons.library_books_outlined),
+                  label: Text('媒体库'),
                 ),
                 NavigationRailDestination(
-                  selectedIcon: Icon(Icons.favorite),
-                  icon: Icon(Icons.favorite_border),
-                  label: Text('追番'),
+                  selectedIcon: Icon(Icons.history),
+                  icon: Icon(Icons.history_outlined),
+                  label: Text('历史'),
                 ),
                 NavigationRailDestination(
                   selectedIcon: Icon(Icons.settings),

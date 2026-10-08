@@ -276,6 +276,42 @@ abstract class _PluginsController with Store {
     );
   }
 
+  /// Toggles the [Plugin.enabled] flag for the rule with [name] and persists.
+  Future<void> togglePluginEnabled(String name) {
+    return _mutateAndPersist(
+      () {
+        final plugin = _findPlugin(name);
+        if (plugin != null) {
+          plugin.enabled = !plugin.enabled;
+        }
+      },
+      errorMessage: 'Plugin: failed to toggle rule enabled state',
+    );
+  }
+
+  /// Sets the [Plugin.enabled] flag for the rule with [name] and persists.
+  Future<void> setPluginEnabled(String name, bool enabled) {
+    return _mutateAndPersist(
+      () {
+        final plugin = _findPlugin(name);
+        if (plugin != null) {
+          plugin.enabled = enabled;
+        }
+      },
+      errorMessage: 'Plugin: failed to update rule enabled state',
+    );
+  }
+
+  Plugin? _findPlugin(String name) {
+    final key = pluginNameKey(name);
+    for (final plugin in pluginList) {
+      if (pluginNameKey(plugin.name) == key) {
+        return plugin;
+      }
+    }
+    return null;
+  }
+
   Future<void> onReorder(int oldIndex, int newIndex) {
     final previous = List<Plugin>.from(pluginList);
     final plugin = pluginList.removeAt(oldIndex);

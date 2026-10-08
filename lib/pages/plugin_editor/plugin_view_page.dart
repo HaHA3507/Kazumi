@@ -419,6 +419,8 @@ class _PluginViewPageState extends State<PluginViewPage> {
                                 padding: EdgeInsets.all(12),
                                 child: LoadingIndicator(size: 24))
                           else
+                            _enableSwitch(plugin),
+                          if (!_selecting && !_updatingNames.contains(plugin.name))
                             _menu(plugin, actualIndex),
                           if (canReorder)
                             Tooltip(
@@ -439,6 +441,15 @@ class _PluginViewPageState extends State<PluginViewPage> {
             ),
           ),
         ),
+      );
+
+  Widget _enableSwitch(Plugin plugin) => Switch(
+        value: plugin.enabled,
+        onChanged: (value) {
+          plugin.enabled = value;
+          setState(() {});
+          _controller.setPluginEnabled(plugin.name, value);
+        },
       );
 
   Widget _menu(Plugin plugin, int index) => KazumiMenuButton(

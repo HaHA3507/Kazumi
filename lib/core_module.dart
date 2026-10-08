@@ -11,6 +11,11 @@ import 'package:kazumi/repositories/danmaku_shield_repository.dart';
 import 'package:kazumi/repositories/history_repository.dart';
 import 'package:kazumi/repositories/search_history_repository.dart';
 import 'package:kazumi/services/download/download_manager.dart';
+import 'package:kazumi/services/media/media_detail_service.dart';
+import 'package:kazumi/services/media/media_episode_service.dart';
+import 'package:kazumi/services/media/media_rule_engine.dart';
+import 'package:kazumi/services/media/media_search_service.dart';
+import 'package:kazumi/services/media/media_stream_resolver.dart';
 import 'package:kazumi/services/player/audio_controller.dart';
 import 'package:kazumi/services/player/history_playback_service.dart';
 import 'package:kazumi/services/shaders/shader_asset_service.dart';
@@ -44,6 +49,18 @@ final coreModule = createModule(
       ..addSingleton<CollectController>(CollectController.new)
       ..addSingleton<HistoryController>(HistoryController.new)
       ..addSingleton<MyController>(MyController.new)
-      ..addSingleton<DownloadController>(DownloadController.new);
+      ..addSingleton<DownloadController>(DownloadController.new)
+      // Universal media services (Phase 2-4).
+      ..addSingleton<MediaRuleEngine>(MediaRuleEngine.new)
+      ..addSingleton<MediaSearchService>(
+        (i) => MediaSearchService(engine: i.get<MediaRuleEngine>()),
+      )
+      ..addSingleton<MediaDetailService>(
+        (i) => MediaDetailService(engine: i.get<MediaRuleEngine>()),
+      )
+      ..addSingleton<MediaEpisodeService>(
+        (i) => MediaEpisodeService(engine: i.get<MediaRuleEngine>()),
+      )
+      ..addSingleton<MediaStreamResolver>(MediaStreamResolver.new);
   },
 );

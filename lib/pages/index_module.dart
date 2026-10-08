@@ -3,9 +3,13 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/widget/error_widget.dart';
 import 'package:kazumi/bean/widget/image_preview.dart';
 import 'package:kazumi/pages/collect/collect_module.dart';
+import 'package:kazumi/pages/home/home_module.dart';
 import 'package:kazumi/pages/index_page.dart';
 import 'package:kazumi/pages/info/info_module.dart';
 import 'package:kazumi/pages/init_page.dart';
+import 'package:kazumi/pages/library/library_module.dart';
+import 'package:kazumi/pages/media_detail/detail_module.dart';
+import 'package:kazumi/pages/media_search/media_search_module.dart';
 import 'package:kazumi/pages/my/my_module.dart';
 import 'package:kazumi/pages/onboarding/onboarding_page.dart';
 import 'package:kazumi/pages/popular/popular_controller.dart';
@@ -16,6 +20,8 @@ import 'package:kazumi/pages/settings/settings_module.dart';
 import 'package:kazumi/pages/timeline/timeline_controller.dart';
 import 'package:kazumi/pages/timeline/timeline_module.dart';
 import 'package:kazumi/pages/video/video_module.dart';
+import 'package:kazumi/pages/history/history_page.dart';
+import 'package:kazumi/pages/history/history_controller.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:kazumi/pages/collect/collect_controller.dart';
@@ -58,10 +64,20 @@ final tabModule = createModule(
               ],
               child: (context, state) => const SizedBox.shrink(),
             )
+            // New universal media tabs (Phase 5).
+            ..module(homeModule)
+            ..module(libraryModule)
+            ..route(
+              '/history',
+              child: (context, state) => HistoryPage(
+                controller: inject<HistoryController>(),
+              ),
+            )
+            ..module(myModule)
+            // Legacy routes kept for backward compatibility (not shown as tabs).
             ..module(popularModule)
             ..module(timelineModule)
-            ..module(collectModule)
-            ..module(myModule);
+            ..module(collectModule);
         },
       );
   },
@@ -119,6 +135,8 @@ final indexModule = createModule(
       )
       ..module(infoModule)
       ..module(settingsModule)
-      ..module(searchModule);
+      ..module(searchModule)
+      ..module(mediaSearchModule)
+      ..module(mediaDetailModule);
   },
 );

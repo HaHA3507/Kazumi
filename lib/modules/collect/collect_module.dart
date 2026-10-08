@@ -1,6 +1,8 @@
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
+import 'package:kazumi/modules/media/media_item.dart';
+import 'package:kazumi/services/media/bangumi_item_adapter.dart';
 
 part 'collect_module.g.dart';
 
@@ -31,4 +33,8 @@ class CollectedBangumi {
   String toString() {
     return 'type: $type, time: $time, anime: ${bangumiItem.name}';
   }
+
+  /// Computed [MediaItem] from the embedded [BangumiItem].
+  /// This is a read-only getter — Hive serialization is unaffected.
+  MediaItem get mediaItem => BangumiItemAdapter.fromBangumiItem(bangumiItem);
 }

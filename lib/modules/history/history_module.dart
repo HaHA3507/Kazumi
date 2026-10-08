@@ -1,5 +1,7 @@
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
+import 'package:kazumi/modules/media/media_item.dart';
+import 'package:kazumi/services/media/bangumi_item_adapter.dart';
 
 part 'history_module.g.dart';
 
@@ -138,6 +140,32 @@ class History {
   String toString() {
     return 'Adapter: $adapterName, anime: ${bangumiItem.name}';
   }
+
+  /// Computed [MediaItem] from the embedded [BangumiItem].
+  /// This is a read-only getter — Hive serialization is unaffected.
+  MediaItem get mediaItem =>
+      BangumiItemAdapter.fromBangumiItem(bangumiItem, sourceId: adapterName);
+
+  /// A stable string ID for this history entry's media item.
+  String get mediaItemId => mediaItem.id;
+
+  /// Episode name for the last watched episode, falling back to a default.
+  String get displayEpisodeName =>
+      lastWatchEpisodeName.isNotEmpty ? lastWatchEpisodeName : '第${lastWatchEpisode}集';
+
+  /// Progress fraction (0.0 – 1.0) for the last watched episode.
+  /// Returns 0 when no progress is recorded.
+  double get lastProgressFraction {
+    final progress = progresses[lastWatchEpisode];
+    if (progress == null) return 0;
+    // We don't have the total duration stored on History, so we can't
+    // compute a precise fraction. Return a non-zero value to indicate
+    // progress exists.
+    return progress.progress.inMilliseconds > 0 ? 1 : 0;
+  }
+
+  /// Whether this history entry has any playback progress.
+  bool get hasProgress => progresses.isNotEmpty && lastWatchEpisode > 0;
 }
 
 @HiveType(typeId: 2)

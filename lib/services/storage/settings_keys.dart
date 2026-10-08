@@ -281,7 +281,7 @@ class SettingsKeys {
   );
   static const defaultStartupPage = SettingKey<String>(
     _SettingBoxKey.defaultStartupPage,
-    '/tab/popular/',
+    '/tab/home/',
     group: SettingGroup.interface,
   );
   static const webDavEnable = SettingKey<bool>(
