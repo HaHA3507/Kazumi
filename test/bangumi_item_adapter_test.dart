@@ -3,10 +3,10 @@ import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/bangumi/bangumi_tag.dart';
 import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/media/media_type.dart';
-import 'package:kazumi/services/media/bangumi_item_adapter.dart';
+import 'package:kazumi/services/media/media_item_adapter.dart';
 
 void main() {
-  group('BangumiItemAdapter', () {
+  group('MediaItemAdapter', () {
     test('fromBangumiItem converts all core fields', () {
       final bangumi = BangumiItem(
         id: 12345,
@@ -26,7 +26,7 @@ void main() {
         info: 'extra info',
       );
 
-      final media = BangumiItemAdapter.fromBangumiItem(bangumi);
+      final media = MediaItemAdapter.fromBangumiItem(bangumi);
 
       expect(media.id, 'bangumi:12345');
       expect(media.title, '进击的巨人');
@@ -60,7 +60,7 @@ void main() {
         info: '',
       );
 
-      final media = BangumiItemAdapter.fromBangumiItem(bangumi);
+      final media = MediaItemAdapter.fromBangumiItem(bangumi);
 
       expect(media.title, 'OriginalName');
       expect(media.originalTitle, isNull);
@@ -85,7 +85,7 @@ void main() {
         info: '',
       );
 
-      final media = BangumiItemAdapter.fromBangumiItem(bangumi, sourceId: 'myrule');
+      final media = MediaItemAdapter.fromBangumiItem(bangumi, sourceId: 'myrule');
 
       expect(media.id, 'myrule:99');
       expect(media.sourceId, 'myrule');
@@ -114,7 +114,7 @@ void main() {
         },
       );
 
-      final bangumi = BangumiItemAdapter.toBangumiItem(media);
+      final bangumi = MediaItemAdapter.toBangumiItem(media);
 
       expect(bangumi, isNotNull);
       expect(bangumi!.id, 42);
@@ -137,7 +137,7 @@ void main() {
         sourceId: 'myrule',
       );
 
-      final result = BangumiItemAdapter.toBangumiItem(media);
+      final result = MediaItemAdapter.toBangumiItem(media);
 
       expect(result, isNull);
     });
@@ -149,7 +149,7 @@ void main() {
         sourceId: 'test',
       );
 
-      final result = BangumiItemAdapter.toBangumiItem(media);
+      final result = MediaItemAdapter.toBangumiItem(media);
 
       expect(result, isNull);
     });

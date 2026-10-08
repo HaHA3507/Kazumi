@@ -38,8 +38,8 @@ class _MediaSearchPageState extends State<MediaSearchPage> {
   void initState() {
     super.initState();
     _searchController = TextEditingController(text: widget.initialKeyword);
-    _searchService = Modular.get<MediaSearchService>();
-    _pluginsController = Modular.get<PluginsController>();
+    _searchService = inject<MediaSearchService>();
+    _pluginsController = inject<PluginsController>();
 
     if (widget.initialKeyword != null && widget.initialKeyword!.isNotEmpty) {
       _performSearch(widget.initialKeyword!);
@@ -83,7 +83,7 @@ class _MediaSearchPageState extends State<MediaSearchPage> {
     // Navigate to the media detail page with the primary item.
     // If there are multiple variants, pass all of them so the detail
     // page can show source selection.
-    Modular.to.pushNamed('/media_detail/', arguments: item);
+    context.pushNamed('/media_detail/', arguments: item);
   }
 
   @override

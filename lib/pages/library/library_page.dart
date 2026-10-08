@@ -1,12 +1,14 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/card/media_card.dart';
+import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/collect/collect_module.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
 import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/pages/collect/collect_controller.dart';
-import 'package:kazumi/services/media/bangumi_item_adapter.dart';
+import 'package:kazumi/services/media/media_item_adapter.dart';
 
 /// Universal library page — collected media grid with type filters.
 ///
@@ -35,7 +37,7 @@ class _LibraryPageState extends State<LibraryPage> {
   @override
   void initState() {
     super.initState();
-    _collectController = Modular.get<CollectController>();
+    _collectController = inject<CollectController>();
   }
 
   List<CollectedBangumi> get _filtered {
@@ -51,7 +53,7 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   void _navigateToDetail(BangumiItem item) {
-    Modular.to.pushNamed('/info/', arguments: item);
+    context.pushNamed('/info/', arguments: item);
   }
 
   @override
@@ -109,7 +111,7 @@ class _LibraryPageState extends State<LibraryPage> {
                     (context, index) {
                       final collected = items[index];
                       final mediaItem =
-                          BangumiItemAdapter.fromBangumiItem(
+                          MediaItemAdapter.fromBangumiItem(
                         collected.bangumiItem,
                       );
                       return MediaCard(

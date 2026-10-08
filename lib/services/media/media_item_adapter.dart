@@ -12,8 +12,8 @@ import 'package:kazumi/modules/media/media_type.dart';
 /// Conversions are lossy in the direction [MediaItem] → [BangumiItem]:
 /// the adapter populates the core fields and stores extra metadata in
 /// the [MediaItem.metadata] map.
-class BangumiItemAdapter {
-  BangumiItemAdapter._();
+class MediaItemAdapter {
+  MediaItemAdapter._();
 
   /// Convert a [BangumiItem] to a [MediaItem].
   ///
@@ -38,7 +38,7 @@ class BangumiItemAdapter {
       originalTitle: item.nameCn.isNotEmpty && item.name != item.nameCn
           ? item.name
           : null,
-      cover: cover.isNotEmpty ? cover : null,
+      cover: cover != null && cover.isNotEmpty ? cover : null,
       description: item.summary.isNotEmpty ? item.summary : null,
       year: _extractYear(item.airDate),
       genre: mediaType.label,

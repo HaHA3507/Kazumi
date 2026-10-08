@@ -1,7 +1,7 @@
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/media/media_item.dart';
-import 'package:kazumi/services/media/bangumi_item_adapter.dart';
+import 'package:kazumi/services/media/media_item_adapter.dart';
 
 part 'history_module.g.dart';
 
@@ -144,7 +144,7 @@ class History {
   /// Computed [MediaItem] from the embedded [BangumiItem].
   /// This is a read-only getter — Hive serialization is unaffected.
   MediaItem get mediaItem =>
-      BangumiItemAdapter.fromBangumiItem(bangumiItem, sourceId: adapterName);
+      MediaItemAdapter.fromBangumiItem(bangumiItem, sourceId: adapterName);
 
   /// A stable string ID for this history entry's media item.
   String get mediaItemId => mediaItem.id;

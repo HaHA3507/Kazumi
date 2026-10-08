@@ -5,17 +5,17 @@ import 'package:kazumi/modules/history/history_module.dart';
 import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/repositories/collect_crud_repository.dart';
 import 'package:kazumi/repositories/history_repository.dart';
-import 'package:kazumi/services/media/bangumi_item_adapter.dart';
+import 'package:kazumi/services/media/media_item_adapter.dart';
 
 /// Bridges the universal [MediaItem] / [CollectedMedia] API to the existing
 /// Hive-backed [HistoryRepository] and [CollectCrudRepository].
 ///
-/// All methods convert [MediaItem] ↔ [BangumiItem] via [BangumiItemAdapter]
+/// All methods convert [MediaItem] ↔ [BangumiItem] via [MediaItemAdapter]
 /// and delegate to the existing repositories. This avoids modifying the
 /// Hive-persisted models while enabling the new UI layer to work with
 /// [MediaItem] exclusively.
 ///
-/// For non-Bangumi items (where [BangumiItemAdapter.toBangumiItem] returns
+/// For non-Bangumi items (where [MediaItemAdapter.toBangumiItem] returns
 /// null), history/favorites operations are no-ops — the data layer will
 /// fully support string-keyed items in a future migration phase.
 class MediaHistoryAdapter {
@@ -33,13 +33,9 @@ class MediaHistoryAdapter {
     String pluginName, {
     String entryKind = HistoryEntryKind.online,
   }) {
-    final bangumiItem = BangumiItemAdapter.toBangumiItem(item);
+    final bangumiItem = MediaItemAdapter.toBangumiItem(item);
     if (bangumiItem == null) return null;
-    return repo.getHistory(
-      adapterName: pluginName,
-      bangumiItem: bangumiItem,
-      entryKind: entryKind,
-    );
+    return repo.getHistory(pluginName, bangumiItem, entryKind: entryKind);
   }
 
   /// Returns the last-watched [Progress] for [item], or null.
@@ -49,12 +45,10 @@ class MediaHistoryAdapter {
     String pluginName, {
     String entryKind = HistoryEntryKind.online,
   }) {
-    final history = getHistory(repo, item, pluginName, entryKind: entryKind);
-    if (history == null) return null;
+    final bangumiItem = MediaItemAdapter.toBangumiItem(item);
+    if (bangumiItem == null) return null;
     return repo.getLastWatchingProgress(
-      item.sourceId == 'bangumi'
-          ? _bangumiIdFromMediaItem(item)
-          : bangumiItemFromMedia(item),
+      bangumiItem,
       pluginName,
       entryKind: entryKind,
     );
@@ -72,13 +66,9 @@ class MediaHistoryAdapter {
     String pluginName, {
     String entryKind = HistoryEntryKind.online,
   }) async {
-    final bangumiItem = BangumiItemAdapter.toBangumiItem(item);
+    final bangumiItem = MediaItemAdapter.toBangumiItem(item);
     if (bangumiItem == null) return;
-    final history = repo.getHistory(
-      adapterName: pluginName,
-      bangumiItem: bangumiItem,
-      entryKind: entryKind,
-    );
+    final history = repo.getHistory(pluginName, bangumiItem, entryKind: entryKind);
     if (history != null) {
       await repo.deleteHistory(history);
     }
@@ -94,7 +84,7 @@ class MediaHistoryAdapter {
     ICollectCrudRepository repo,
     MediaItem item,
   ) {
-    final bangumiItem = BangumiItemAdapter.toBangumiItem(item);
+    final bangumiItem = MediaItemAdapter.toBangumiItem(item);
     if (bangumiItem == null) return CollectType.none;
     final typeInt = repo.getCollectType(bangumiItem.id);
     return CollectType.fromValue(typeInt);
@@ -107,7 +97,7 @@ class MediaHistoryAdapter {
     MediaItem item,
     CollectType type,
   ) async {
-    final bangumiItem = BangumiItemAdapter.toBangumiItem(item);
+    final bangumiItem = MediaItemAdapter.toBangumiItem(item);
     if (bangumiItem == null) return;
     await repo.addCollectible(bangumiItem, type.value);
   }
@@ -118,7 +108,7 @@ class MediaHistoryAdapter {
     ICollectCrudRepository repo,
     MediaItem item,
   ) async {
-    final bangumiItem = BangumiItemAdapter.toBangumiItem(item);
+    final bangumiItem = MediaItemAdapter.toBangumiItem(item);
     if (bangumiItem == null) return;
     await repo.deleteCollectible(bangumiItem.id);
   }
@@ -131,36 +121,6 @@ class MediaHistoryAdapter {
       return CollectedMediaEntry(c, c.mediaItem);
     }).toList();
   }
-
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  static BangumiItem bangumiItemFromMedia(MediaItem item) {
-    return BangumiItemAdapter.toBangumiItem(item) ?? _emptyBangumi;
-  }
-
-  static int? _bangumiIdFromMediaItem(MediaItem item) {
-    return BangumiItemAdapter.toBangumiItem(item)?.id;
-  }
-
-  static final BangumiItem _emptyBangumi = BangumiItem(
-    id: 0,
-    type: 2,
-    name: '',
-    nameCn: '',
-    summary: '',
-    airDate: '',
-    airWeekday: 0,
-    rank: 0,
-    images: {},
-    tags: [],
-    alias: [],
-    ratingScore: 0,
-    votes: 0,
-    votesCount: [],
-    info: '',
-  );
 }
 
 /// A [History] paired with its computed [MediaItem].

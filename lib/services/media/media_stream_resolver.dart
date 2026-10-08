@@ -8,6 +8,7 @@ import 'package:kazumi/plugins/api_rule_config.dart';
 import 'package:kazumi/request/clients/plugin_site_client.dart';
 import 'package:kazumi/services/media/media_rule_models.dart';
 import 'package:kazumi/services/video_source/video_source_service.dart';
+import 'package:kazumi/services/video_source/video_source_format.dart';
 import 'package:kazumi/services/video_source/webview_video_source_service.dart';
 import 'package:kazumi/utils/episode_url.dart';
 import 'package:xpath_selector_html_parser/xpath_selector_html_parser.dart';
@@ -62,6 +63,7 @@ class MediaStreamResolver {
         config,
         episodeUrl,
         rule,
+        offset: offset,
       );
     }
 
@@ -79,8 +81,9 @@ class MediaStreamResolver {
   Future<MediaStream> _resolveWithXPath(
     MediaRuleExecutionConfig config,
     String episodeUrl,
-    MediaRule rule,
-  ) async {
+    MediaRule rule, {
+    int offset = 0,
+  }) async {
     final url = _renderUrl(config.streamUrlXPath!, episodeUrl);
 
     _log('XPath stream resolution: fetching $url');

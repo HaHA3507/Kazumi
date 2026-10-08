@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/card/media_card.dart';
+import 'package:kazumi/bean/dialog/dialog_task.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/collect/collect_module.dart';
@@ -10,7 +11,7 @@ import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/pages/collect/collect_controller.dart';
 import 'package:kazumi/pages/history/history_controller.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
-import 'package:kazumi/services/media/bangumi_item_adapter.dart';
+import 'package:kazumi/services/media/media_item_adapter.dart';
 import 'package:kazumi/services/media/plugin_rule_extension.dart';
 import 'package:kazumi/services/player/history_playback_service.dart';
 import 'package:kazumi/services/plugin/rule_engine_models.dart'
@@ -29,7 +30,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with KazumiDialogOwner {
   late PluginsController _pluginsController;
   late HistoryController _historyController;
   late CollectController _collectController;
@@ -37,21 +38,21 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _pluginsController = Modular.get<PluginsController>();
-    _historyController = Modular.get<HistoryController>();
-    _collectController = Modular.get<CollectController>();
+    _pluginsController = inject<PluginsController>();
+    _historyController = inject<HistoryController>();
+    _collectController = inject<CollectController>();
   }
 
   void _navigateToSearch() {
-    Modular.to.pushNamed('/media_search/');
+    context.pushNamed('/media_search/');
   }
 
   void _navigateToDetail(BangumiItem item) {
-    Modular.to.pushNamed('/info/', arguments: item);
+    context.pushNamed('/info/', arguments: item);
   }
 
   void _navigateToPluginSettings() {
-    Modular.to.pushNamed('/settings/plugin/');
+    context.pushNamed('/settings/plugin/');
   }
 
   @override
@@ -146,8 +147,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _resumePlayback(History history) async {
-    final playbackService = Modular.get<HistoryPlaybackService>();
-    await KazumiDialog.run((task) async {
+    final playbackService = inject<HistoryPlaybackService>();
+    await dialogs.run((task) async {
       final cancelToken = RuleCancelToken();
       final result = await task.loading(
         message: '获取中',
@@ -184,7 +185,7 @@ class _HomePageState extends State<HomePage> {
           itemCount: favorites.length,
           itemBuilder: (context, index) {
             final collected = favorites[index];
-            final mediaItem = BangumiItemAdapter.fromBangumiItem(
+            final mediaItem = MediaItemAdapter.fromBangumiItem(
               collected.bangumiItem,
             );
             return Padding(
@@ -222,7 +223,7 @@ class _HomePageState extends State<HomePage> {
               label: Text(plugin.name),
               avatar: const Icon(Icons.source_outlined, size: 18),
               onPressed: () {
-                Modular.to.pushNamed('/settings/plugin/editor',
+                context.pushNamed('/settings/plugin/editor',
                     arguments: plugin);
               },
             );

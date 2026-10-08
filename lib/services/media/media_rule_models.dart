@@ -4,7 +4,15 @@ import 'package:kazumi/modules/media/media_rule.dart';
 import 'package:kazumi/plugins/api_rule_config.dart';
 import 'package:kazumi/plugins/anti_crawler_config.dart';
 import 'package:kazumi/services/plugin/rule_engine_models.dart';
-import 'package:kazumi/utils/episode_url.dart';
+
+/// Exceptions re-exported for convenience (same types as existing engine).
+export 'package:kazumi/services/plugin/rule_engine_models.dart'
+    show
+        CaptchaRequiredException,
+        NoResultException,
+        SearchErrorException,
+        ChapterErrorException,
+        RuleCancelToken;
 
 /// Runtime configuration snapshot built from a [MediaRule], compatible with
 /// the existing [RuleExecutionConfig] so the proven strategies can be reused.
@@ -205,12 +213,3 @@ class MediaEpisodeResult {
     required this.rawResponse,
   });
 }
-
-/// Exceptions re-exported for convenience (same types as existing engine).
-export 'package:kazumi/services/plugin/rule_engine_models.dart'
-    show
-        CaptchaRequiredException,
-        NoResultException,
-        SearchErrorException,
-        ChapterErrorException,
-        RuleCancelToken;

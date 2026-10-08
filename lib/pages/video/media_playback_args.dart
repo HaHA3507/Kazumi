@@ -4,7 +4,7 @@ import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/roads/road_module.dart';
 import 'package:kazumi/pages/video/video_playback_args.dart';
 import 'package:kazumi/plugins/plugins.dart';
-import 'package:kazumi/services/media/bangumi_item_adapter.dart';
+import 'package:kazumi/services/media/media_item_adapter.dart';
 
 /// Universal playback arguments using [MediaItem] instead of [BangumiItem].
 ///
@@ -39,7 +39,7 @@ class MediaPlaybackArgs {
   /// Converts to the existing [OnlineVideoPlaybackArgs] when the
   /// [MediaItem] is Bangumi-backed. Returns null for non-Bangumi items.
   OnlineVideoPlaybackArgs? toVideoPlaybackArgs() {
-    final bangumiItem = BangumiItemAdapter.toBangumiItem(mediaItem);
+    final bangumiItem = MediaItemAdapter.toBangumiItem(mediaItem);
     if (bangumiItem == null) return null;
 
     final roads = <Road>[];

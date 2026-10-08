@@ -4,12 +4,8 @@ import 'package:html/parser.dart';
 import 'package:kazumi/modules/media/media_detail.dart';
 import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/media/media_rule.dart';
-import 'package:kazumi/modules/media/media_type.dart';
-import 'package:kazumi/modules/roads/road_module.dart';
-import 'package:kazumi/plugins/api_rule_config.dart';
 import 'package:kazumi/services/media/media_rule_models.dart';
 import 'package:kazumi/services/plugin/rule_engine.dart' as legacy;
-import 'package:kazumi/services/plugin/rule_engine_models.dart';
 import 'package:kazumi/utils/episode_url.dart';
 import 'package:xpath_selector_html_parser/xpath_selector_html_parser.dart';
 
@@ -212,16 +208,15 @@ class MediaRuleEngine {
       final item = items[i];
 
       if (config.searchCoverXPath != null) {
-        final cover = _extractXPathFromNode(node, config.searchCoverXPath!);
+        final cover = _extractFromXPathNode(node, config.searchCoverXPath!);
         if (cover != null) items[i] = item.copyWith(cover: cover);
       }
       if (config.searchDescriptionXPath != null) {
-        final desc =
-            _extractXPathFromNode(node, config.searchDescriptionXPath!);
+        final desc = _extractFromXPathNode(node, config.searchDescriptionXPath!);
         if (desc != null) items[i] = items[i].copyWith(description: desc);
       }
       if (config.searchYearXPath != null) {
-        final year = _extractXPathFromNode(node, config.searchYearXPath!);
+        final year = _extractFromXPathNode(node, config.searchYearXPath!);
         if (year != null) items[i] = items[i].copyWith(year: year);
       }
     }
@@ -250,7 +245,7 @@ class MediaRuleEngine {
     return attrs.isNotEmpty ? attrs.first.trim() : null;
   }
 
-  String? _extractXPathFromNode(Element parent, String xpath) {
+  String? _extractFromXPathNode(XPathNode<Node> parent, String xpath) {
     if (xpath.trim().isEmpty) return null;
     final node = parent.queryXPath(xpath).node;
     if (node == null) return null;

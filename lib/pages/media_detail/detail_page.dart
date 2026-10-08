@@ -7,7 +7,7 @@ import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/roads/road_module.dart';
 import 'package:kazumi/plugins/plugins.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
-import 'package:kazumi/services/media/bangumi_item_adapter.dart';
+import 'package:kazumi/services/media/media_item_adapter.dart';
 import 'package:kazumi/services/media/media_deduplicator.dart';
 import 'package:kazumi/services/media/media_episode_service.dart';
 import 'package:kazumi/services/media/plugin_rule_extension.dart';
@@ -42,8 +42,8 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
   @override
   void initState() {
     super.initState();
-    _episodeService = Modular.get<MediaEpisodeService>();
-    _pluginsController = Modular.get<PluginsController>();
+    _episodeService = inject<MediaEpisodeService>();
+    _pluginsController = inject<PluginsController>();
 
     final args = widget.item;
     if (args is DeduplicatedMediaItem) {
@@ -127,7 +127,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
     if (plugin == null) return;
 
     // Convert MediaItem → BangumiItem (adapter for existing video page).
-    final bangumiItem = BangumiItemAdapter.toBangumiItem(item);
+    final bangumiItem = MediaItemAdapter.toBangumiItem(item);
     if (bangumiItem == null) {
       // Not a Bangumi item — for now, we can't play non-Bangumi items
       // through the existing video page. This will be resolved when
@@ -156,7 +156,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
       roads: roads,
     );
 
-    Modular.to.pushNamed('/video/', arguments: args);
+    context.pushNamed('/video/', arguments: args);
   }
 
   @override

@@ -4,7 +4,7 @@ import 'package:kazumi/modules/media/media_type.dart';
 /// favorites and playback.
 ///
 /// Replaces [BangumiItem] as the core domain model. Old [BangumiItem]
-/// instances are converted via [BangumiItemAdapter].
+/// instances are converted via [MediaItemAdapter].
 ///
 /// The [id] is a string (not int) so it can represent Bangumi subject IDs,
 /// rule-defined IDs, or any arbitrary identifier. The [sourceId] identifies

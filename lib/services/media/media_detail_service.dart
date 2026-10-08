@@ -3,7 +3,6 @@ import 'package:kazumi/modules/media/media_detail.dart';
 import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/media/media_rule.dart';
 import 'package:kazumi/services/media/media_rule_engine.dart';
-import 'package:kazumi/services/media/media_rule_models.dart';
 
 /// Fetches detail page metadata (cover, description, year, genre) for a
 /// media item using the rule's [RuleDetail] XPath configuration.
