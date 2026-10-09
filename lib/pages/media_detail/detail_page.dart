@@ -353,9 +353,9 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
         continue;
       }
 
-      // A source with a single group (one line) needs no group title —
-      // the source header already says it. Only label multiple lines.
-      final showGroupTitles = source.groups.length > 1;
+      // Always label each line, even single-line sources: users need to
+      // see which (and how many) lines a source actually provides.
+      final showGroupTitles = source.groups.isNotEmpty;
       for (var groupIndex = 0; groupIndex < source.groups.length; groupIndex++) {
         final group = source.groups[groupIndex];
         if (showGroupTitles) {
