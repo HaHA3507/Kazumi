@@ -272,6 +272,115 @@ void main() {
       await reconciliation;
       expect(reconciliationStarted, isTrue);
     });
+
+    test('backfills cover into an existing cover-less record', () async {
+      final repository = HistoryRepository(
+        historiesBox: historiesBox,
+        privateModeReader: () => privateMode,
+        progressSyncAppender: _noopHistorySync,
+        deleteSyncAppender: _noopDeleteSync,
+        clearSyncAppender: _noopClearSync,
+      );
+      // Old record: written before covers reached the playback path, so
+      // the embedded BangumiItem carries an empty images map.
+      final oldItem = _item(7);
+
+      await repository.updateHistory(
+        identity: PlaybackHistoryIdentity.online(
+          bangumiItem: oldItem,
+          pluginName: 'plugin',
+          episodeNumber: 1,
+          episodeTitle: 'EP1',
+          road: 0,
+          onlineBangumiSrc: 'https://example.com/source',
+          episodePageUrl: '/online/1',
+        ),
+        progress: const Duration(seconds: 10),
+      );
+
+      // New playback carries a real cover (same item, cover now populated).
+      final freshItem = _item(7).copyWithImages(
+        'https://example.com/cover.jpg',
+      );
+
+      await repository.updateHistory(
+        identity: PlaybackHistoryIdentity.online(
+          bangumiItem: freshItem,
+          pluginName: 'plugin',
+          episodeNumber: 2,
+          episodeTitle: 'EP2',
+          road: 0,
+          onlineBangumiSrc: 'https://example.com/source',
+          episodePageUrl: '/online/2',
+        ),
+        progress: const Duration(seconds: 30),
+      );
+
+      final history = repository.getHistory(
+        'plugin',
+        freshItem,
+        entryKind: HistoryEntryKind.online,
+      );
+
+      expect(history, isNotNull);
+      expect(history!.bangumiItem.images['large'], 'https://example.com/cover.jpg');
+      // Progress is preserved across the healed record.
+      expect(history.progresses[1]!.progress.inSeconds, 10);
+      expect(history.progresses[2]!.progress.inSeconds, 30);
+    });
+
+    test('keeps a stored cover when playback carries none', () async {
+      final repository = HistoryRepository(
+        historiesBox: historiesBox,
+        privateModeReader: () => privateMode,
+        progressSyncAppender: _noopHistorySync,
+        deleteSyncAppender: _noopDeleteSync,
+        clearSyncAppender: _noopClearSync,
+      );
+      final coveredItem = _item(8).copyWithImages(
+        'https://example.com/stored.jpg',
+      );
+
+      await repository.updateHistory(
+        identity: PlaybackHistoryIdentity.online(
+          bangumiItem: coveredItem,
+          pluginName: 'plugin',
+          episodeNumber: 1,
+          episodeTitle: 'EP1',
+          road: 0,
+          onlineBangumiSrc: 'https://example.com/source',
+          episodePageUrl: '/online/1',
+        ),
+        progress: const Duration(seconds: 10),
+      );
+
+      // Follow-up watch where the playback item lost its cover.
+      final bareItem = _item(8);
+
+      await repository.updateHistory(
+        identity: PlaybackHistoryIdentity.online(
+          bangumiItem: bareItem,
+          pluginName: 'plugin',
+          episodeNumber: 2,
+          episodeTitle: 'EP2',
+          road: 0,
+          onlineBangumiSrc: 'https://example.com/source',
+          episodePageUrl: '/online/2',
+        ),
+        progress: const Duration(seconds: 20),
+      );
+
+      final history = repository.getHistory(
+        'plugin',
+        bareItem,
+        entryKind: HistoryEntryKind.online,
+      );
+
+      expect(history, isNotNull);
+      // The stored cover is never overwritten by an empty one.
+      expect(
+          history!.bangumiItem.images['large'], 'https://example.com/stored.jpg');
+    });
   });
 }
 
@@ -326,4 +435,26 @@ BangumiItem _item(int id) {
     votesCount: const [],
     info: '',
   );
+}
+
+extension _CoverFixture on BangumiItem {
+  BangumiItem copyWithImages(String large) {
+    return BangumiItem(
+      id: id,
+      type: type,
+      name: name,
+      nameCn: nameCn,
+      summary: summary,
+      airDate: airDate,
+      airWeekday: airWeekday,
+      rank: rank,
+      images: {'large': large},
+      tags: tags,
+      alias: alias,
+      ratingScore: ratingScore,
+      votes: votes,
+      votesCount: votesCount,
+      info: info,
+    );
+  }
 }

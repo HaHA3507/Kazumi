@@ -117,21 +117,48 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
     }
   }
 
-  /// When the primary item still has no cover (search heuristics failed),
-  /// try og:image from one of the loaded detail pages.
+  /// Backfills covers for sources whose items lack one (search heuristics
+  /// failed), using og:image from each source's own detail page HTML.
+  ///
+  /// Covers are written into each source's [MediaItem] so [MediaPlaybackArgs]
+  /// → history/favorites receive them — the top banner alone updating was
+  /// not enough, the playback path carries its own copy of the item.
   void _fillMissingCover(List<_SourceEpisodes> sources) {
-    final current = _selectedItem;
-    if (current == null || current.cover != null) return;
+    String? fallback;
     for (final source in sources) {
+      if (source.item.cover != null && source.item.cover!.isNotEmpty) {
+        fallback ??= source.item.cover;
+        continue;
+      }
+      if (source.rawHtml.isEmpty) continue;
       final ogImage = _extractOgImage(
         source.rawHtml,
         source.plugin?.baseUrl ?? '',
       );
       if (ogImage != null) {
-        if (!mounted) return;
-        setState(() => _selectedItem = current.copyWith(cover: ogImage));
-        return;
+        fallback ??= ogImage;
+        source.item = source.item.copyWith(cover: ogImage);
       }
+    }
+
+    // Sources with no usable HTML of their own inherit the first cover
+    // found on the page (same content, same poster).
+    if (fallback != null) {
+      for (final source in sources) {
+        if (source.item.cover == null || source.item.cover!.isEmpty) {
+          source.item = source.item.copyWith(cover: fallback);
+        }
+      }
+    }
+
+    if (!mounted) return;
+    final primary = _selectedItem;
+    if (primary != null &&
+        (primary.cover == null || primary.cover!.isEmpty) &&
+        fallback != null) {
+      setState(() => _selectedItem = primary.copyWith(cover: fallback));
+    } else {
+      setState(() {});
     }
   }
 
@@ -453,7 +480,11 @@ class _SourceEpisodes {
   });
 
   final Plugin? plugin;
-  final MediaItem item;
+
+  /// The source's media item. Mutable so [_fillMissingCover] can backfill
+  /// the cover before playback hands the item to the player/history layer.
+  MediaItem item;
+
   final List<MediaEpisodeGroup> groups;
   final String rawHtml;
   final String? error;

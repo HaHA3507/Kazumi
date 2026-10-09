@@ -260,6 +260,7 @@ class HistoryRepository implements IHistoryRepository {
         if (identity.episodePageUrl.isNotEmpty) {
           history.episodePageUrl = identity.episodePageUrl;
         }
+        _backfillHistoryCover(history, identity.bangumiItem);
 
         // 更新观看进度
         var prog = history.progresses[episode];
@@ -405,5 +406,21 @@ class HistoryRepository implements IHistoryRepository {
         (normalizedEntryKind == HistoryEntryKind.online
             ? _historiesBox.get(History.legacyKey(adapterName, bangumiItem))
             : null);
+  }
+
+  /// Heals cover-less history records: entries written before cover
+  /// extraction landed in the playback path persist an embedded
+  /// [BangumiItem] with an empty images map. When the current playback
+  /// carries a real cover, merge it into the stored record so the history
+  /// list, home page and favorites pick it up after the next watch.
+  ///
+  /// Only fills empty slots — a stored cover is never overwritten, and the
+  /// title etc. stay untouched so progress keys remain stable.
+  void _backfillHistoryCover(History history, BangumiItem fresh) {
+    final images = history.bangumiItem.images;
+    if (images['large'] != null && images['large']!.isNotEmpty) return;
+    final freshCover = fresh.images['large'] ?? fresh.images['common'];
+    if (freshCover == null || freshCover.isEmpty) return;
+    images['large'] = freshCover;
   }
 }
