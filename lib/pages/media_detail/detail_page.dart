@@ -471,7 +471,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
 /// Episodes loaded from one source (dedup variant), kept together with the
 /// plugin so playback can use the correct headers and road list.
 class _SourceEpisodes {
-  const _SourceEpisodes({
+  _SourceEpisodes({
     required this.plugin,
     required this.item,
     required this.groups,
