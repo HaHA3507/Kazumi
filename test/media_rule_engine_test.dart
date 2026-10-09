@@ -538,6 +538,115 @@ void main() {
           result.items.first.cover, 'https://puui.qpic.cn/vcover_vt_pic/0/xyz/260');
     });
 
+    test('queryHome parses recommendations with heuristic cover', () async {
+      // Structure shaped like a typical site home page: a hot list where
+      // each card is an <a> carrying the href, a title span and an <img>.
+      const homeHtml = '''
+<html>
+  <body>
+    <div class="hot">
+      <a class="card" href="/v/1.html"><img src="https://example.com/c1.jpg"/><span>推荐一</span></a>
+      <a class="card" href="/v/2.html"><span>推荐二</span></a>
+    </div>
+  </body>
+</html>
+''';
+
+      final executor = _FakeExecutor([homeHtml]);
+      final legacyEngine = RuleEngine(
+        requestExecutor: executor,
+        logFailures: false,
+      );
+      final engine = MediaRuleEngine(legacyEngine: legacyEngine);
+
+      final rule = MediaRule(
+        version: '9',
+        id: 'hotsite',
+        name: 'HotSite',
+        baseUrl: 'https://example.com/',
+        home: RuleHome(
+          url: 'https://example.com/hot.html',
+          itemXPath: RuleSearchItemXPath(
+            itemXPath: '//a[@class="card"]',
+            titleXPath: './span',
+            detailUrlXPath: './@href',
+          ),
+        ),
+      );
+
+      final result = await engine.queryHome(rule);
+
+      expect(result.items, hasLength(2));
+      expect(result.items[0].title, '推荐一');
+      expect(result.items[0].sourceId, 'hotsite');
+      expect(result.items[0].detailUrl, 'https://example.com/v/1.html');
+      // Heuristic cover extraction from the embedded <img>.
+      expect(result.items[0].cover, 'https://example.com/c1.jpg');
+      expect(result.items[1].title, '推荐二');
+      expect(result.items[1].detailUrl, 'https://example.com/v/2.html');
+      // The executor fetched the configured home URL, not the base URL.
+      expect(executor.requests, hasLength(1));
+      expect(executor.requests.first.url, 'https://example.com/hot.html');
+      expect(executor.requests.first.method, 'GET');
+    });
+
+    test('queryHome falls back to baseUrl when home url is empty', () async {
+      const homeHtml = '''
+<html>
+  <body>
+    <div class="hot">
+      <a class="card" href="/v/9.html"><span>推荐九</span></a>
+    </div>
+  </body>
+</html>
+''';
+
+      final executor = _FakeExecutor([homeHtml]);
+      final legacyEngine = RuleEngine(
+        requestExecutor: executor,
+        logFailures: false,
+      );
+      final engine = MediaRuleEngine(legacyEngine: legacyEngine);
+
+      final rule = MediaRule(
+        version: '9',
+        id: 'hotsite',
+        name: 'HotSite',
+        baseUrl: 'https://example.com/',
+        home: RuleHome(
+          itemXPath: RuleSearchItemXPath(
+            itemXPath: '//a[@class="card"]',
+            titleXPath: './span',
+            detailUrlXPath: './@href',
+          ),
+        ),
+      );
+
+      final result = await engine.queryHome(rule);
+
+      expect(result.items, hasLength(1));
+      expect(result.items.first.title, '推荐九');
+      expect(executor.requests.first.url, 'https://example.com/');
+    });
+
+    test('queryHome throws when rule has no home config', () async {
+      final engine = MediaRuleEngine(
+        legacyEngine: RuleEngine(logFailures: false),
+      );
+
+      final rule = MediaRule(
+        version: '9',
+        id: 'plain',
+        name: 'Plain',
+        baseUrl: 'https://example.com/',
+      );
+
+      await expectLater(
+        engine.queryHome(rule),
+        throwsA(isA<StateError>()),
+      );
+    });
+
     test('search throws NoResultException for empty results', () async {
       final executor = _FakeExecutor(['<html><body>no results</body></html>']);
       final legacyEngine = RuleEngine(

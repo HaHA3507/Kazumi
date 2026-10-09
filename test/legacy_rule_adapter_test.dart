@@ -3,6 +3,7 @@ import 'package:kazumi/modules/media/media_rule.dart';
 import 'package:kazumi/modules/media/media_type.dart';
 import 'package:kazumi/plugins/anti_crawler_config.dart';
 import 'package:kazumi/plugins/api_rule_config.dart';
+import 'package:kazumi/plugins/home_config.dart';
 import 'package:kazumi/plugins/plugins.dart';
 import 'package:kazumi/services/media/legacy_rule_adapter.dart';
 
@@ -181,6 +182,86 @@ void main() {
       expect(rule.antiCrawler!.enabled, isTrue);
       expect(rule.antiCrawler!.captchaType, CaptchaType.imageCaptcha);
       expect(rule.antiCrawler!.captchaImage, '//img[@id="captcha"]');
+    });
+
+    test('fromPlugin maps homeConfig to RuleHome', () {
+      final plugin = Plugin(
+        api: '8',
+        type: 'anime',
+        name: 'HomeRule',
+        version: '1.0',
+        muliSources: true,
+        useWebview: true,
+        useNativePlayer: true,
+        usePost: false,
+        useLegacyParser: false,
+        adBlocker: false,
+        userAgent: '',
+        baseUrl: 'https://example.com/',
+        searchURL: '',
+        searchList: '',
+        searchName: '',
+        searchResult: '',
+        chapterRoads: '',
+        chapterResult: '',
+        referer: '',
+        homeConfig: HomeConfig(
+          url: 'https://example.com/hot.html',
+          homeList: '//div[@class="hot"]/a',
+          homeName: './span',
+          homeResult: './@href',
+          homeCover: './img/@src',
+        ),
+      );
+
+      final rule = LegacyRuleAdapter.fromPlugin(plugin);
+
+      expect(rule.home, isNotNull);
+      expect(rule.home!.mode, RuleMode.xpath);
+      expect(rule.home!.url, 'https://example.com/hot.html');
+      expect(rule.home!.itemXPath?.itemXPath, '//div[@class="hot"]/a');
+      expect(rule.home!.itemXPath?.titleXPath, './span');
+      expect(rule.home!.itemXPath?.detailUrlXPath, './@href');
+      expect(rule.home!.itemXPath?.coverXPath, './img/@src');
+
+      // Round-trip back to a Plugin keeps the home config.
+      final restored = LegacyRuleAdapter.toPlugin(rule);
+      expect(restored.homeConfig.isConfigured, isTrue);
+      expect(restored.homeConfig.url, 'https://example.com/hot.html');
+      expect(restored.homeConfig.homeList, '//div[@class="hot"]/a');
+      expect(restored.homeConfig.homeName, './span');
+      expect(restored.homeConfig.homeResult, './@href');
+      expect(restored.homeConfig.homeCover, './img/@src');
+    });
+
+    test('fromPlugin leaves home null without homeConfig', () {
+      final plugin = Plugin.fromTemplate()..name = 'NoHome';
+
+      final rule = LegacyRuleAdapter.fromPlugin(plugin);
+
+      expect(rule.home, isNull);
+    });
+
+    test('Plugin serializes homeConfig only when configured', () {
+      final configured = Plugin.fromTemplate()
+        ..name = 'WithHome'
+        ..homeConfig = HomeConfig(
+          url: 'https://example.com/hot.html',
+          homeList: '//a',
+          homeName: './span',
+          homeResult: './@href',
+        );
+
+      final json = configured.toJson();
+      expect(json['homeConfig'], isNotNull);
+      final restored = Plugin.fromJson(json);
+      expect(restored.homeConfig.isConfigured, isTrue);
+      expect(restored.homeConfig.homeList, '//a');
+
+      // Unconfigured home stays out of the persisted JSON.
+      final bare = Plugin.fromTemplate()..name = 'NoHome';
+      expect(bare.toJson().containsKey('homeConfig'), isFalse);
+      expect(bare.homeConfig.isConfigured, isFalse);
     });
 
     test('fromPlugin sets antiCrawler to null when disabled', () {

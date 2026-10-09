@@ -51,6 +51,13 @@ class MediaRuleExecutionConfig {
   final String? streamUrlXPath;
   final bool streamUseLegacyParser;
 
+  /// Home-page recommendations config (optional):
+  final String homeUrl; // '' → use baseUrl
+  final String homeListXPath;
+  final String homeNameXPath;
+  final String homeResultXPath;
+  final String? homeCoverXPath;
+
   const MediaRuleExecutionConfig({
     required this.ruleName,
     required this.baseUrl,
@@ -76,7 +83,18 @@ class MediaRuleExecutionConfig {
     this.streamMode = 'webview',
     this.streamUrlXPath,
     this.streamUseLegacyParser = false,
+    this.homeUrl = '',
+    this.homeListXPath = '',
+    this.homeNameXPath = '',
+    this.homeResultXPath = '',
+    this.homeCoverXPath,
   });
+
+  /// Whether the rule carries a usable home-recommendation configuration.
+  bool get hasHomeConfig =>
+      homeListXPath.trim().isNotEmpty &&
+      homeNameXPath.trim().isNotEmpty &&
+      homeResultXPath.trim().isNotEmpty;
 
   /// Build from a [MediaRule], extracting legacy fields and new v9 fields.
   factory MediaRuleExecutionConfig.fromRule(MediaRule rule) {
@@ -138,6 +156,9 @@ class MediaRuleExecutionConfig {
     // Detail page XPath:
     final detail = rule.detail;
 
+    // Home-page recommendations:
+    final home = rule.home;
+
     return MediaRuleExecutionConfig(
       ruleName: rule.name,
       baseUrl: rule.baseUrl ?? '',
@@ -163,6 +184,11 @@ class MediaRuleExecutionConfig {
       streamMode: streamMode,
       streamUrlXPath: streamUrlXPath,
       streamUseLegacyParser: streamUseLegacyParser,
+      homeUrl: home?.url ?? '',
+      homeListXPath: home?.itemXPath?.itemXPath ?? '',
+      homeNameXPath: home?.itemXPath?.titleXPath ?? '',
+      homeResultXPath: home?.itemXPath?.detailUrlXPath ?? '',
+      homeCoverXPath: home?.itemXPath?.coverXPath,
     );
   }
 

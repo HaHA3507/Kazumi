@@ -82,6 +82,44 @@ class RuleSearchItemXPath {
       };
 }
 
+/// Home-page recommendations section of a [MediaRule] (optional).
+///
+/// When present, the engine fetches [url] (or the rule's base URL) and
+/// extracts recommended items using [itemXPath] — same shape as search
+/// result items, minus the keyword.
+class RuleHome {
+  /// Parsing mode: "xpath" (API mode may come later).
+  final String mode;
+
+  /// Recommendations page URL. Empty means "use the rule's base URL".
+  final String url;
+
+  /// Item extraction XPath (reuses the search item shape).
+  final RuleSearchItemXPath? itemXPath;
+
+  RuleHome({
+    this.mode = 'xpath',
+    this.url = '',
+    this.itemXPath,
+  });
+
+  factory RuleHome.fromJson(Map<String, dynamic> json) {
+    return RuleHome(
+      mode: json['mode'] as String? ?? 'xpath',
+      url: json['url'] as String? ?? '',
+      itemXPath: json['item'] is Map
+          ? RuleSearchItemXPath.fromJson(Map<String, dynamic>.from(json['item']))
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'mode': mode,
+        if (url.isNotEmpty) 'url': url,
+        if (itemXPath != null) 'item': itemXPath!.toJson(),
+      };
+}
+
 /// Search section of a [MediaRule].
 class RuleSearch {
   /// Parsing mode: "xpath" or "api".
@@ -412,6 +450,9 @@ class MediaRule {
   /// Stream resolution configuration (optional).
   final RuleStream? stream;
 
+  /// Home-page recommendations configuration (optional).
+  final RuleHome? home;
+
   /// HTTP headers configuration.
   final RuleHeaders? headers;
 
@@ -452,6 +493,7 @@ class MediaRule {
     this.detail,
     this.episodes,
     this.stream,
+    this.home,
     this.headers,
     this.antiCrawler,
     this.player,

@@ -4,7 +4,7 @@ import 'package:html/parser.dart';
 import 'package:kazumi/modules/media/media_detail.dart';
 import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/media/media_rule.dart';
-import 'package:kazumi/plugins/api_rule_config.dart' show RuleMode;
+import 'package:kazumi/plugins/api_rule_config.dart';
 import 'package:kazumi/services/media/media_rule_models.dart';
 import 'package:kazumi/services/plugin/rule_engine.dart' as legacy;
 import 'package:kazumi/utils/episode_url.dart';
@@ -58,23 +58,102 @@ class MediaRuleEngine {
       ));
     }
 
-    // Enrich with cover/description/year from v9 XPath fields if available.
-    if (items.isNotEmpty &&
-        (config.searchCoverXPath != null ||
-            config.searchDescriptionXPath != null ||
-            config.searchYearXPath != null)) {
-      _enrichSearchItems(
+    // Enrich with cover/description/year from v9 XPath fields, then fall
+    // back to heuristic poster extraction for items still lacking a cover.
+    if (items.isNotEmpty && config.searchMode == RuleMode.xpath) {
+      _enrichItems(
         items,
         trace.rawResponse,
-        config,
+        listXPath: config.searchList,
+        nameXPath: config.searchName,
+        resultXPath: config.searchResult,
+        coverXPath: config.searchCoverXPath,
+        descriptionXPath: config.searchDescriptionXPath,
+        yearXPath: config.searchYearXPath,
+        baseUrl: config.baseUrl,
       );
     }
 
-    // Heuristic cover fallback: pull the first <img> out of each search
-    // result node so legacy rules (no cover XPath configured) still show
-    // posters in search results.
+    return MediaSearchResult(
+      items: items,
+      diagnostics: trace.diagnostics,
+      rawResponse: trace.rawResponse,
+    );
+  }
+
+  /// Queries the source's home page for recommended items.
+  ///
+  /// Requires the rule to carry home-recommendation XPath fields; throws
+  /// [StateError] when the rule has none, so callers can skip such rules.
+  /// Reuses the proven legacy search pipeline (HTTP fetch, captcha
+  /// detection, XPath item parsing) with the home URL and home XPaths
+  /// substituted for the search ones — the empty keyword never appears in
+  /// a home URL template, so it is simply not substituted.
+  Future<MediaSearchResult> queryHome(
+    MediaRule rule, {
+    CancelToken? cancelToken,
+  }) async {
+    final config = MediaRuleExecutionConfig.fromRule(rule);
+    if (!config.hasHomeConfig) {
+      throw StateError(
+        'Rule ${rule.id} has no home recommendation configuration',
+      );
+    }
+    final homeUrl = config.homeUrl.trim().isNotEmpty
+        ? config.homeUrl.trim()
+        : config.baseUrl;
+    if (homeUrl.trim().isEmpty) {
+      throw StateError(
+        'Rule ${rule.id} has neither a home URL nor a base URL',
+      );
+    }
+
+    final homeLegacyConfig = RuleExecutionConfig(
+      pluginName: config.ruleName,
+      baseUrl: config.baseUrl,
+      usePost: false,
+      searchMode: RuleMode.xpath,
+      chapterMode: RuleMode.xpath,
+      searchUrl: homeUrl,
+      searchList: config.homeListXPath,
+      searchName: config.homeNameXPath,
+      searchResult: config.homeResultXPath,
+      // Chapter fields are never read on this path; mirror the home
+      // selectors so no field is left empty.
+      chapterRoads: config.homeListXPath,
+      chapterResult: config.homeResultXPath,
+      searchApiConfig: ApiSearchConfig(),
+      chapterApiConfig: ApiChapterConfig(),
+      antiCrawlerConfig: config.antiCrawlerConfig,
+    );
+
+    final trace = await _legacy.search(
+      homeLegacyConfig,
+      '',
+      cancelToken: cancelToken,
+    );
+
+    final items = <MediaItem>[];
+    for (final searchItem in trace.response.data) {
+      items.add(MediaItem(
+        id: '${rule.id}:${searchItem.src}',
+        title: searchItem.name,
+        sourceId: rule.id,
+        type: rule.type,
+        detailUrl: _resolveDetailUrl(config.baseUrl, searchItem.src),
+      ));
+    }
+
     if (items.isNotEmpty) {
-      _heuristicCoverFallback(items, trace.rawResponse, config);
+      _enrichItems(
+        items,
+        trace.rawResponse,
+        listXPath: config.homeListXPath,
+        nameXPath: config.homeNameXPath,
+        resultXPath: config.homeResultXPath,
+        coverXPath: config.homeCoverXPath,
+        baseUrl: config.baseUrl,
+      );
     }
 
     return MediaSearchResult(
@@ -199,80 +278,62 @@ class MediaRuleEngine {
         .toList();
   }
 
-  void _enrichSearchItems(
+  /// Enriches [items] with cover/description/year extracted from the
+  /// response HTML, walking the [listXPath] nodes in lockstep with the
+  /// legacy parser (it skips nodes lacking a name or href, so the item
+  /// cursor only advances on nodes that actually produced an item).
+  ///
+  /// Covers use [coverXPath] when provided; items still lacking a cover
+  /// get the heuristic poster extraction (first <img>, then any element
+  /// carrying a lazy-loading data-* attribute).
+  void _enrichItems(
     List<MediaItem> items,
-    String rawHtml,
-    MediaRuleExecutionConfig config,
-  ) {
-    if (config.searchMode != RuleMode.xpath) return;
-    final nodes = _searchNodes(rawHtml, config);
-    if (nodes == null) return;
+    String rawHtml, {
+    required String listXPath,
+    required String nameXPath,
+    required String resultXPath,
+    String? coverXPath,
+    String? descriptionXPath,
+    String? yearXPath,
+    required String baseUrl,
+  }) {
+    final list = listXPath.trim();
+    if (list.isEmpty) return;
+    List<XPathNode<Node>> nodes;
+    try {
+      final root = _documentElement(rawHtml);
+      nodes = root.queryXPath(list).nodes;
+    } catch (_) {
+      return;
+    }
 
-    // Walk nodes in lockstep with the legacy parser: it skips nodes that
-    // lack a name or href, so the item cursor only advances on nodes that
-    // actually produced an item.
     var itemIndex = 0;
     for (final node in nodes) {
       if (itemIndex >= items.length) break;
-      if (!_nodeProducesItem(node, config)) continue;
+      if (!_nodeProducesItem(node, nameXPath, resultXPath)) continue;
       var item = items[itemIndex];
       itemIndex++;
 
-      if (config.searchCoverXPath != null) {
-        final cover = _extractFromXPathNode(node, config.searchCoverXPath!);
+      final coverPath = coverXPath?.trim() ?? '';
+      if (coverPath.isNotEmpty) {
+        final cover = _extractFromXPathNode(node, coverPath);
         if (cover != null) item = item.copyWith(cover: cover);
       }
-      if (config.searchDescriptionXPath != null) {
-        final desc = _extractFromXPathNode(node, config.searchDescriptionXPath!);
+      if (item.cover == null || item.cover!.isEmpty) {
+        final heuristic = _firstImageInNode(node, baseUrl);
+        if (heuristic != null) item = item.copyWith(cover: heuristic);
+      }
+      final descPath = descriptionXPath?.trim() ?? '';
+      if (descPath.isNotEmpty) {
+        final desc = _extractFromXPathNode(node, descPath);
         if (desc != null) item = item.copyWith(description: desc);
       }
-      if (config.searchYearXPath != null) {
-        final year = _extractFromXPathNode(node, config.searchYearXPath!);
+      final yearPath = yearXPath?.trim() ?? '';
+      if (yearPath.isNotEmpty) {
+        final year = _extractFromXPathNode(node, yearPath);
         if (year != null) item = item.copyWith(year: year);
       }
       items[itemIndex - 1] = item;
-    }
-  }
-
-  /// Extracts cover images for search results that lack one, without any
-  /// rule configuration: within each search result node, find the first
-  /// `<img>` and read its real image URL from common lazy-loading
-  /// attributes (data-original/data-src/...) before falling back to src.
-  void _heuristicCoverFallback(
-    List<MediaItem> items,
-    String rawHtml,
-    MediaRuleExecutionConfig config,
-  ) {
-    if (items.every((item) => item.cover != null && item.cover!.isNotEmpty)) {
-      return;
-    }
-    if (config.searchMode != RuleMode.xpath) return;
-    final nodes = _searchNodes(rawHtml, config);
-    if (nodes == null) return;
-
-    var itemIndex = 0;
-    for (final node in nodes) {
-      if (itemIndex >= items.length) break;
-      if (!_nodeProducesItem(node, config)) continue;
-      final item = items[itemIndex];
-      itemIndex++;
-      if (item.cover != null && item.cover!.isNotEmpty) continue;
-      final cover = _firstImageInNode(node, config.baseUrl);
-      if (cover != null) items[itemIndex - 1] = item.copyWith(cover: cover);
-    }
-  }
-
-  List<XPathNode<Node>>? _searchNodes(
-    String rawHtml,
-    MediaRuleExecutionConfig config,
-  ) {
-    final searchList = config.searchList.trim();
-    if (searchList.isEmpty) return null;
-    try {
-      final root = _documentElement(rawHtml);
-      return root.queryXPath(searchList).nodes;
-    } catch (_) {
-      return null;
     }
   }
 
@@ -280,14 +341,13 @@ class MediaRuleEngine {
   /// stays aligned when the parser skipped nodes.
   bool _nodeProducesItem(
     XPathNode<Node> node,
-    MediaRuleExecutionConfig config,
+    String nameXPath,
+    String resultXPath,
   ) {
     try {
-      final name = node.queryXPath(config.searchName).node?.text?.trim() ?? '';
+      final name = node.queryXPath(nameXPath).node?.text?.trim() ?? '';
       final href =
-          node.queryXPath(config.searchResult).node?.attributes['href']
-              ?.trim() ??
-          '';
+          node.queryXPath(resultXPath).node?.attributes['href']?.trim() ?? '';
       return name.isNotEmpty && href.isNotEmpty;
     } catch (_) {
       return false;

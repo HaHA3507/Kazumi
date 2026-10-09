@@ -2,6 +2,7 @@ import 'package:kazumi/modules/roads/road_module.dart';
 import 'package:kazumi/modules/search/plugin_search_module.dart';
 import 'package:kazumi/plugins/anti_crawler_config.dart';
 import 'package:kazumi/plugins/api_rule_config.dart';
+import 'package:kazumi/plugins/home_config.dart';
 import 'package:kazumi/request/config/api_endpoints.dart';
 import 'package:kazumi/services/plugin/api_rule_engine.dart';
 import 'package:kazumi/utils/episode_url.dart';
@@ -53,6 +54,9 @@ class Plugin {
   /// this field and are always enabled).
   bool enabled;
 
+  /// Optional home-page recommendation extraction config.
+  HomeConfig homeConfig;
+
   Plugin({
     required this.api,
     required this.type,
@@ -79,9 +83,11 @@ class Plugin {
     ApiChapterConfig? chapterApiConfig,
     AntiCrawlerConfig? antiCrawlerConfig,
     this.enabled = true,
+    HomeConfig? homeConfig,
   })  : searchApiConfig = searchApiConfig ?? ApiSearchConfig(),
         chapterApiConfig = chapterApiConfig ?? ApiChapterConfig(),
-        antiCrawlerConfig = antiCrawlerConfig ?? AntiCrawlerConfig.empty();
+        antiCrawlerConfig = antiCrawlerConfig ?? AntiCrawlerConfig.empty(),
+        homeConfig = homeConfig ?? HomeConfig();
 
   factory Plugin.fromJson(Map<String, dynamic> json) {
     return Plugin(
@@ -122,6 +128,11 @@ class Plugin {
             )
           : AntiCrawlerConfig.empty(),
       enabled: json['enabled'] as bool? ?? true,
+      homeConfig: json['homeConfig'] is Map
+          ? HomeConfig.fromJson(
+              Map<String, dynamic>.from(json['homeConfig']),
+            )
+          : HomeConfig(),
     );
   }
 
@@ -186,6 +197,9 @@ class Plugin {
         'chapterApiConfig': chapterApiConfig.toJson(),
       'antiCrawlerConfig': antiCrawlerConfig.toJson(),
       if (!enabled) 'enabled': false,
+      // Persisted re-serializes the whole plugin list; keep unconfigured
+      // home recommendations out of the file like other optional configs.
+      if (homeConfig.isConfigured) 'homeConfig': homeConfig.toJson(),
     };
   }
 

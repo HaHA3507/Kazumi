@@ -9,6 +9,7 @@ import 'package:kazumi/pages/plugin_editor/rule_management_widgets.dart';
 import 'package:kazumi/pages/plugin_editor/editor_form_widgets.dart';
 import 'package:kazumi/plugins/anti_crawler_config.dart';
 import 'package:kazumi/plugins/api_rule_config.dart';
+import 'package:kazumi/plugins/home_config.dart';
 import 'package:kazumi/plugins/plugins.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:kazumi/request/config/api_endpoints.dart';
@@ -123,6 +124,15 @@ abstract final class _RuleEditorText {
   static const referer = '播放请求来源（Referer）';
   static const refererHelper = '仅用于播放器和下载器。';
 
+  static const homeSection = '首页推荐（可选）';
+  static const homeSectionDesc = '配置后 App 首页会展示该来源的推荐内容，三项 XPath 均填写才会生效。';
+  static const homeUrl = '推荐页地址（留空使用站点地址）';
+  static const homeListXPath = '推荐列表（XPath）';
+  static const homeNameXPath = '推荐条目名称（XPath，相对条目）';
+  static const homeLinkXPath = '推荐条目链接（XPath，相对条目）';
+  static const homeCoverXPath = '推荐条目封面（XPath，可选）';
+  static const homeCoverXPathHelper = '留空时自动从条目内提取图片。';
+
   static const captchaDetectValue = '验证页检测值';
   static const captchaDetectValueHelper = '留空时使用验证码图片或验证按钮的 XPath 进行检测。';
   static const captchaImage = '验证码图片（XPath）';
@@ -168,6 +178,11 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
   final TextEditingController searchResultController = TextEditingController();
   final TextEditingController chapterRoadsController = TextEditingController();
   final TextEditingController chapterResultController = TextEditingController();
+  final TextEditingController homeURLController = TextEditingController();
+  final TextEditingController homeListController = TextEditingController();
+  final TextEditingController homeNameController = TextEditingController();
+  final TextEditingController homeResultController = TextEditingController();
+  final TextEditingController homeCoverController = TextEditingController();
   final TextEditingController refererController = TextEditingController();
   final TextEditingController searchApiURLController = TextEditingController();
   final TextEditingController searchApiHeadersController =
@@ -285,6 +300,11 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
     searchResultController.text = plugin.searchResult;
     chapterRoadsController.text = plugin.chapterRoads;
     chapterResultController.text = plugin.chapterResult;
+    homeURLController.text = plugin.homeConfig.url;
+    homeListController.text = plugin.homeConfig.homeList;
+    homeNameController.text = plugin.homeConfig.homeName;
+    homeResultController.text = plugin.homeConfig.homeResult;
+    homeCoverController.text = plugin.homeConfig.homeCover;
     refererController.text = plugin.referer;
     searchMode = plugin.searchMode;
     chapterMode = plugin.chapterMode;
@@ -365,6 +385,11 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
     searchResultController.dispose();
     chapterRoadsController.dispose();
     chapterResultController.dispose();
+    homeURLController.dispose();
+    homeListController.dispose();
+    homeNameController.dispose();
+    homeResultController.dispose();
+    homeCoverController.dispose();
     refererController.dispose();
     searchApiURLController.dispose();
     searchApiHeadersController.dispose();
@@ -785,6 +810,35 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
           controller: searchResultController,
           label: _RuleEditorText.itemLinkXPath,
         ),
+        const EditorSubheader(label: _RuleEditorText.homeSection),
+        Text(
+          _RuleEditorText.homeSectionDesc,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 13,
+          ),
+        ),
+        EditorTextField(
+          controller: homeURLController,
+          label: _RuleEditorText.homeUrl,
+        ),
+        EditorTextField(
+          controller: homeListController,
+          label: _RuleEditorText.homeListXPath,
+        ),
+        EditorTextField(
+          controller: homeNameController,
+          label: _RuleEditorText.homeNameXPath,
+        ),
+        EditorTextField(
+          controller: homeResultController,
+          label: _RuleEditorText.homeLinkXPath,
+        ),
+        EditorTextField(
+          controller: homeCoverController,
+          label: _RuleEditorText.homeCoverXPath,
+          helper: _RuleEditorText.homeCoverXPathHelper,
+        ),
       ];
 
   List<Widget> _buildXPathChapterFields() => [
@@ -1011,6 +1065,13 @@ class _PluginEditorPageState extends State<PluginEditorPage> {
         captchaDetectType: captchaDetectType,
         captchaDetectValue: captchaDetectValueController.text,
         captchaScript: captchaScriptController.text,
+      ),
+      homeConfig: HomeConfig(
+        url: homeURLController.text.trim(),
+        homeList: homeListController.text.trim(),
+        homeName: homeNameController.text.trim(),
+        homeResult: homeResultController.text.trim(),
+        homeCover: homeCoverController.text.trim(),
       ),
     );
   }

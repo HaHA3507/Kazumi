@@ -2,6 +2,7 @@ import 'package:kazumi/modules/media/media_rule.dart';
 import 'package:kazumi/modules/media/media_type.dart';
 import 'package:kazumi/plugins/anti_crawler_config.dart';
 import 'package:kazumi/plugins/api_rule_config.dart';
+import 'package:kazumi/plugins/home_config.dart';
 import 'package:kazumi/plugins/plugins.dart';
 
 /// Adapts legacy Kazumi rules (v8 [Plugin]) to the universal [MediaRule]
@@ -31,6 +32,7 @@ class LegacyRuleAdapter {
       search: _adaptSearch(plugin),
       episodes: _adaptEpisodes(plugin),
       stream: _adaptStream(plugin),
+      home: _adaptHome(plugin),
       headers: RuleHeaders(
         userAgent: plugin.userAgent.isEmpty ? null : plugin.userAgent,
         referer: plugin.referer.isEmpty ? null : plugin.referer,
@@ -114,6 +116,13 @@ class LegacyRuleAdapter {
       searchApiConfig: searchConfig,
       chapterApiConfig: chapterConfig,
       antiCrawlerConfig: antiCrawler,
+      homeConfig: HomeConfig(
+        url: rule.home?.url ?? '',
+        homeList: rule.home?.itemXPath?.itemXPath ?? '',
+        homeName: rule.home?.itemXPath?.titleXPath ?? '',
+        homeResult: rule.home?.itemXPath?.detailUrlXPath ?? '',
+        homeCover: rule.home?.itemXPath?.coverXPath ?? '',
+      ),
     );
   }
 
@@ -166,6 +175,24 @@ class LegacyRuleAdapter {
       mode: 'webview',
       url: '{episode_url}',
       useLegacyParser: plugin.useLegacyParser,
+    );
+  }
+
+  static RuleHome? _adaptHome(Plugin plugin) {
+    if (!plugin.homeConfig.isConfigured) return null;
+    return RuleHome(
+      mode: RuleMode.xpath,
+      url: plugin.homeConfig.url,
+      itemXPath: RuleSearchItemXPath(
+        itemXPath: plugin.homeConfig.homeList,
+        titleXPath:
+            plugin.homeConfig.homeName.isNotEmpty ? plugin.homeConfig.homeName : null,
+        detailUrlXPath: plugin.homeConfig.homeResult.isNotEmpty
+            ? plugin.homeConfig.homeResult
+            : null,
+        coverXPath:
+            plugin.homeConfig.homeCover.isNotEmpty ? plugin.homeConfig.homeCover : null,
+      ),
     );
   }
 }

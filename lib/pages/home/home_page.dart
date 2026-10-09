@@ -5,10 +5,14 @@ import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
 import 'package:kazumi/modules/history/history_module.dart';
+import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/pages/collect/collect_controller.dart';
 import 'package:kazumi/pages/history/history_controller.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
+import 'package:kazumi/services/media/media_deduplicator.dart';
 import 'package:kazumi/services/media/media_item_adapter.dart';
+import 'package:kazumi/services/media/media_rule_engine.dart';
+import 'package:kazumi/services/media/plugin_rule_extension.dart';
 import 'package:kazumi/services/player/history_playback_service.dart';
 import 'package:kazumi/services/plugin/rule_engine_models.dart'
     show RuleCancelToken;
@@ -30,6 +34,7 @@ class _HomePageState extends State<HomePage> with KazumiDialogOwner {
   late PluginsController _pluginsController;
   late HistoryController _historyController;
   late CollectController _collectController;
+  final List<_HomeRecommendation> _recommendations = [];
 
   @override
   void initState() {
@@ -37,6 +42,34 @@ class _HomePageState extends State<HomePage> with KazumiDialogOwner {
     _pluginsController = inject<PluginsController>();
     _historyController = inject<HistoryController>();
     _collectController = inject<CollectController>();
+    _loadRecommendations();
+  }
+
+  /// Loads home-page recommendations from every enabled rule that carries
+  /// a home config, concurrently. Rules without the config (or whose pages
+  /// fail to parse) simply contribute no section.
+  Future<void> _loadRecommendations() async {
+    final candidates = _pluginsController.pluginList
+        .where((plugin) => plugin.enabled && plugin.homeConfig.isConfigured)
+        .toList();
+    if (candidates.isEmpty) return;
+
+    final engine = inject<MediaRuleEngine>();
+    final results = await Future.wait(
+      candidates.map((plugin) async {
+        try {
+          final result = await engine.queryHome(plugin.toMediaRule());
+          return _HomeRecommendation(plugin.name, result.items);
+        } catch (_) {
+          return _HomeRecommendation(plugin.name, const []);
+        }
+      }),
+    );
+
+    if (!mounted) return;
+    final loaded = results.where((rec) => rec.items.isNotEmpty).toList();
+    if (loaded.isEmpty) return;
+    setState(() => _recommendations.addAll(loaded));
   }
 
   void _navigateToSearch() {
@@ -72,6 +105,10 @@ class _HomePageState extends State<HomePage> with KazumiDialogOwner {
           SliverToBoxAdapter(
             child: _buildSearchBar(context, theme),
           ),
+          for (final recommendation in _recommendations)
+            SliverToBoxAdapter(
+              child: _buildRecommendation(context, theme, recommendation),
+            ),
           SliverToBoxAdapter(
             child: _buildContinueWatching(context, theme),
           ),
@@ -87,8 +124,7 @@ class _HomePageState extends State<HomePage> with KazumiDialogOwner {
     );
   }
 
-  Widget _buildSearchBar(BuildContext context, ThemeData theme) {
-    return Padding(
+  Widget _buildSearchBar(BuildContext context, ThemeData theme) {    return Padding(
       padding: const EdgeInsets.all(16),
       child: InkWell(
         onTap: _navigateToSearch,
@@ -113,6 +149,44 @@ class _HomePageState extends State<HomePage> with KazumiDialogOwner {
           ),
         ),
       ),
+    );
+  }
+
+  /// A source's home-page recommendations as a horizontal card rail.
+  Widget _buildRecommendation(
+    BuildContext context,
+    ThemeData theme,
+    _HomeRecommendation recommendation,
+  ) {
+    return _Section(
+      title: '推荐 · ${recommendation.sourceName}',
+      child: SizedBox(
+        height: 210,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: recommendation.items.length,
+          itemBuilder: (context, index) {
+            final item = recommendation.items[index];
+            return Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: MediaCard(
+                item: item,
+                width: 130,
+                height: 210,
+                onTap: () => _navigateToMediaDetail(item),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _navigateToMediaDetail(MediaItem item) {
+    context.pushNamed(
+      '/media_detail/',
+      arguments: DeduplicatedMediaItem(primary: item, variants: [item]),
     );
   }
 
@@ -383,4 +457,12 @@ class _ContinueWatchingCard extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Recommendations loaded from one source's home page.
+class _HomeRecommendation {
+  const _HomeRecommendation(this.sourceName, this.items);
+
+  final String sourceName;
+  final List<MediaItem> items;
 }
