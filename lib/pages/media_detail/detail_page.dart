@@ -126,16 +126,9 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
     if (plugin == null) return;
 
     // Convert MediaItem → BangumiItem (adapter for existing video page).
-    final bangumiItem = MediaItemAdapter.toBangumiItem(item);
-    if (bangumiItem == null) {
-      // Not a Bangumi item — for now, we can't play non-Bangumi items
-      // through the existing video page. This will be resolved when
-      // the video page is migrated to accept MediaItem (Phase 7+).
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('该内容暂不支持播放（非 Bangumi 来源）')),
-      );
-      return;
-    }
+    // Non-Bangumi items get a deterministic synthetic BangumiItem so the
+    // existing player, history and favorites pipeline keeps working.
+    final bangumiItem = MediaItemAdapter.toPlaybackBangumiItem(item);
 
     // Convert MediaEpisodeGroup[] → Road[] (adapter for existing video page).
     final roads = <Road>[];

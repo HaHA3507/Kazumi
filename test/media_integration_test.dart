@@ -143,12 +143,9 @@ void main() {
       );
 
       // Step 5: Convert to existing VideoPlaybackArgs.
-      final videoArgs = playbackArgs.toVideoPlaybackArgs();
+      final onlineArgs = playbackArgs.toVideoPlaybackArgs();
 
-      expect(videoArgs, isNotNull);
-      expect(videoArgs, isA<OnlineVideoPlaybackArgs>());
-
-      final onlineArgs = videoArgs as OnlineVideoPlaybackArgs;
+      expect(onlineArgs, isA<OnlineVideoPlaybackArgs>());
       expect(onlineArgs.bangumiItem.id, 42);
       expect(onlineArgs.bangumiItem.nameCn, '庆余年');
       expect(onlineArgs.plugin.name, 'TestSource');

@@ -153,5 +153,67 @@ void main() {
 
       expect(result, isNull);
     });
+
+    test('toPlaybackBangumiItem returns real item for Bangumi-backed id', () {
+      final media = MediaItem(
+        id: 'bangumi:42',
+        title: '测试番剧',
+        originalTitle: 'TestAnime',
+        sourceId: 'bangumi',
+        metadata: {
+          'bangumiId': 42,
+          'bangumiType': 2,
+          'airDate': '2020-01-01',
+          'airWeekday': 3,
+          'rank': 50,
+          'ratingScore': 7.8,
+          'votes': 500,
+          'votesCount': <int>[],
+          'info': '',
+        },
+      );
+
+      final result = MediaItemAdapter.toPlaybackBangumiItem(media);
+
+      expect(result.id, 42);
+      expect(result.nameCn, '测试番剧');
+      expect(MediaItemAdapter.isSyntheticBangumiId(result.id), isFalse);
+    });
+
+    test('toPlaybackBangumiItem creates deterministic synthetic item', () {
+      final media = MediaItem(
+        id: 'myrule:https://example.com/detail/abc',
+        title: '任意内容',
+        sourceId: 'myrule',
+        cover: 'https://example.com/cover.jpg',
+      );
+
+      final first = MediaItemAdapter.toPlaybackBangumiItem(media);
+      final second = MediaItemAdapter.toPlaybackBangumiItem(media);
+
+      // Deterministic: same media ID → same synthetic Bangumi ID.
+      expect(first.id, second.id);
+      // Inside the synthetic range (901M–1B), never a real Bangumi ID.
+      expect(MediaItemAdapter.isSyntheticBangumiId(first.id), isTrue);
+      expect(first.id, greaterThanOrEqualTo(901000000));
+      expect(first.id, lessThan(1000000000));
+      // Core fields are carried over.
+      expect(first.nameCn, '任意内容');
+      expect(first.images['large'], 'https://example.com/cover.jpg');
+    });
+
+    test('synthetic IDs differ for different media IDs', () {
+      final a = MediaItemAdapter.syntheticBangumiId('ruleA:item1');
+      final b = MediaItemAdapter.syntheticBangumiId('ruleB:item2');
+
+      expect(a, isNot(b));
+    });
+
+    test('syntheticBangumiId is stable across calls', () {
+      final id = 'myrule:some-detail-url-12345';
+
+      expect(MediaItemAdapter.syntheticBangumiId(id),
+          MediaItemAdapter.syntheticBangumiId(id));
+    });
   });
 }

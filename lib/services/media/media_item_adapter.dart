@@ -78,6 +78,64 @@ class MediaItemAdapter {
     );
   }
 
+  /// Converts any [MediaItem] into a [BangumiItem] usable by the existing
+  /// video player, history and favorites pipeline.
+  ///
+  /// Bangumi-backed items (id "bangumi:123") are converted losslessly via
+  /// [toBangumiItem]. Every other item gets a synthetic [BangumiItem] whose
+  /// ID is derived deterministically from the [MediaItem.id] string, so:
+  ///
+  /// * watch history keys stay stable across sessions (resume works),
+  /// * favorites/downloads keyed by the ID resolve consistently,
+  /// * re-entering the same item always maps to the same BangumiItem.
+  ///
+  /// Synthetic IDs live in 901,000,000–999,999,999, far above the real
+  /// Bangumi subject ID range, so they never collide with genuine subjects.
+  /// Danmaku/comment lookups against these IDs simply find no match and
+  /// degrade gracefully.
+  static BangumiItem toPlaybackBangumiItem(MediaItem item) {
+    final real = toBangumiItem(item);
+    if (real != null) return real;
+
+    return BangumiItem(
+      id: syntheticBangumiId(item.id),
+      type: _mediaTypeToBangumiType(item.type),
+      name: item.originalTitle ?? item.title,
+      nameCn: item.title,
+      summary: item.description ?? '',
+      airDate: item.year ?? '',
+      airWeekday: 0,
+      rank: 0,
+      images: _buildImages(item),
+      tags: const [],
+      alias: const [],
+      ratingScore: 0,
+      votes: 0,
+      votesCount: const [],
+      info: '',
+    );
+  }
+
+  /// Lower bound of the synthetic ID range (inclusive).
+  static const int syntheticIdBase = 901000000;
+
+  /// Derives a deterministic synthetic Bangumi subject ID for [mediaId].
+  ///
+  /// FNV-1a 32-bit hash of the full media ID, mapped into
+  /// [syntheticIdBase, 1000000000).
+  static int syntheticBangumiId(String mediaId) {
+    var hash = 0x811c9dc5;
+    for (var i = 0; i < mediaId.length; i++) {
+      hash ^= mediaId.codeUnitAt(i);
+      hash = (hash * 0x01000193) & 0xFFFFFFFF;
+    }
+    return syntheticIdBase + (hash % (1000000000 - syntheticIdBase));
+  }
+
+  /// Whether [bangumiId] falls inside the synthetic ID range.
+  static bool isSyntheticBangumiId(int bangumiId) =>
+      bangumiId >= syntheticIdBase && bangumiId < 1000000000;
+
   static MediaType _bangumiTypeToMediaType(int bangumiType) {
     return switch (bangumiType) {
       2 => MediaType.anime,

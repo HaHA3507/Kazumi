@@ -72,10 +72,9 @@ void main() {
 
       final videoArgs = args.toVideoPlaybackArgs();
 
-      expect(videoArgs, isNotNull);
       expect(videoArgs, isA<OnlineVideoPlaybackArgs>());
 
-      final onlineArgs = videoArgs as OnlineVideoPlaybackArgs;
+      final onlineArgs = videoArgs;
       expect(onlineArgs.bangumiItem.id, 42);
       expect(onlineArgs.bangumiItem.name, 'OriginalName');
       expect(onlineArgs.bangumiItem.nameCn, '中文名');
@@ -92,11 +91,13 @@ void main() {
       expect(onlineArgs.roads.first.identifier[1], '第2集');
     });
 
-    test('toVideoPlaybackArgs returns null for non-Bangumi item', () {
+    test('toVideoPlaybackArgs converts non-Bangumi item with synthetic id',
+        () {
       final mediaItem = MediaItem(
         id: 'customSource:abc',
         title: 'Custom Show',
         sourceId: 'customSource',
+        cover: 'https://example.com/cover.jpg',
       );
 
       final plugin = Plugin(
@@ -129,7 +130,35 @@ void main() {
 
       final videoArgs = args.toVideoPlaybackArgs();
 
-      expect(videoArgs, isNull);
+      // Synthetic ID is deterministic and inside the synthetic range.
+      expect(
+          MediaItemAdapter.isSyntheticBangumiId(videoArgs.bangumiItem.id),
+          isTrue);
+      expect(videoArgs.bangumiItem.nameCn, 'Custom Show');
+      expect(videoArgs.bangumiItem.images['large'],
+          'https://example.com/cover.jpg');
+      expect(videoArgs.plugin.name, 'CustomRule');
+      expect(videoArgs.title, 'Custom Show');
+
+      // Same media ID maps to the same synthetic ID (stable history keys).
+      final again = MediaPlaybackArgs(
+        mediaItem: mediaItem,
+        plugin: plugin,
+        episodeGroups: [],
+      ).toVideoPlaybackArgs();
+      expect(again.bangumiItem.id, videoArgs.bangumiItem.id);
+
+      // Different media IDs map to different synthetic IDs.
+      final other = MediaPlaybackArgs(
+        mediaItem: MediaItem(
+          id: 'customSource:other',
+          title: 'Other',
+          sourceId: 'customSource',
+        ),
+        plugin: plugin,
+        episodeGroups: [],
+      ).toVideoPlaybackArgs();
+      expect(other.bangumiItem.id, isNot(videoArgs.bangumiItem.id));
     });
 
     test('toVideoPlaybackArgs converts multiple episode groups to roads', () {
@@ -196,7 +225,7 @@ void main() {
         episodeGroups: episodeGroups,
       );
 
-      final videoArgs = args.toVideoPlaybackArgs()!;
+      final videoArgs = args.toVideoPlaybackArgs();
 
       expect(videoArgs.roads, hasLength(2));
       expect(videoArgs.roads[0].name, '线路1');
