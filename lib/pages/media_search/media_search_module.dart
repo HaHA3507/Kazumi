@@ -6,6 +6,7 @@ final mediaSearchModule = createModule(
   register: (c) {
     c.route(
       '/',
+      transition: TransitionType.none,
       child: (context, state) => MediaSearchPage(
         initialKeyword: state.uri.queryParameters['q'],
       ),

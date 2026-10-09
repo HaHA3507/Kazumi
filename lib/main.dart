@@ -24,6 +24,26 @@ import 'package:kazumi/navigation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Release builds render build-exceptions as a plain gray box by default.
+  // Surface the error text instead so failures are diagnosable on device.
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return Material(
+      color: const Color(0xFF911A1A),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: DefaultTextStyle(
+            style: const TextStyle(color: Color(0xFFFFFFFF), fontSize: 13),
+            child: SingleChildScrollView(
+              child: Text(
+                '页面构建出错，请截图反馈：\n\n${details.exception}',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  };
   registerEchHttpLicenses();
   MediaKit.ensureInitialized();
   if (Platform.isAndroid || Platform.isIOS) {

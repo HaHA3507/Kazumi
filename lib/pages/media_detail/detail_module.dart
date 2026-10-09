@@ -6,6 +6,7 @@ final mediaDetailModule = createModule(
   register: (c) {
     c.route(
       '/',
+      transition: TransitionType.none,
       child: (context, state) => MediaDetailPage(item: state.arguments),
     );
   },

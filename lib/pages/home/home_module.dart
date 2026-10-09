@@ -6,6 +6,7 @@ final homeModule = createModule(
   register: (c) {
     c.route(
       '/',
+      transition: TransitionType.none,
       child: (context, state) => const HomePage(),
     );
   },

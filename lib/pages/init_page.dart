@@ -56,6 +56,26 @@ class _InitPageState extends State<InitPage> {
   }
 
   Future<void> _initializeApp() async {
+    try {
+      await _initializeAppInner();
+    } catch (error, stackTrace) {
+      KazumiLogger().e(
+        'InitPage: initialization failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (!mounted) {
+        return;
+      }
+      // Never leave the user on a blank loading screen: fall back to a
+      // known-good legacy tab when any initialization step throws.
+      try {
+        context.navigate('/tab/my/');
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _initializeAppInner() async {
     widget.danmakuShieldSync.start();
     _migrateStorage();
     _loadShaders();
@@ -152,7 +172,22 @@ class _InitPageState extends State<InitPage> {
     if (!mounted) {
       return;
     }
-    context.navigate(defaultStartupPage);
+    try {
+      context.navigate(defaultStartupPage);
+    } catch (error, stackTrace) {
+      KazumiLogger().e(
+        'InitPage: failed to navigate to $defaultStartupPage',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      // Fall back to a known-good legacy tab so the app is never stuck on
+      // a blank screen when the default page route cannot be resolved.
+      if (mounted) {
+        try {
+          context.navigate('/tab/my/');
+        } catch (_) {}
+      }
+    }
   }
 
   // migrate collect from old version (favorites)
@@ -337,6 +372,8 @@ class LoadingWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: Container());
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
   }
 }
