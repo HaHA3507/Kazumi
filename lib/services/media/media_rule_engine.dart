@@ -327,7 +327,7 @@ class MediaRuleEngine {
     // Walk the node subtree directly so this works regardless of which
     // attribute-selector syntaxes the XPath library supports.
     final htmlNode = node.node;
-    if (htmlNode != null) {
+    if (htmlNode is Element) {
       final found = _findLazyImageAttribute(htmlNode, lazyAttributes);
       if (found != null) {
         final resolved = _resolveImageUrl(baseUrl, found);
@@ -340,18 +340,14 @@ class MediaRuleEngine {
   /// Depth-first search of [element] and its descendants for the first
   /// non-empty lazy-loading image attribute from [attributeNames].
   String? _findLazyImageAttribute(
-    Node node,
+    Element element,
     List<String> attributeNames,
   ) {
-    if (node is Element) {
-      for (final name in attributeNames) {
-        final value = node.attributes[name]?.trim();
-        if (value != null && value.isNotEmpty) return value;
-      }
+    for (final name in attributeNames) {
+      final value = element.attributes[name]?.trim();
+      if (value != null && value.isNotEmpty) return value;
     }
-    for (var child = node.firstChild;
-        child != null;
-        child = child.nextSibling) {
+    for (final child in element.children) {
       final found = _findLazyImageAttribute(child, attributeNames);
       if (found != null) return found;
     }
