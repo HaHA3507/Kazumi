@@ -590,6 +590,65 @@ void main() {
       expect(executor.requests.first.method, 'GET');
     });
 
+    test('queryHome parses DM84-shaped home with data-bg cover', () async {
+      // Structure taken from DM84's real home page: each item is a
+      // div.item containing a lazy cover link (<a data-bg>) and a title
+      // link whose element text is the name and href is the detail URL —
+      // exactly the element-selection semantics the legacy parser uses.
+      const homeHtml = '''
+<html>
+  <body>
+    <ul class="v_list">
+      <li><div class="item">
+        <a href="/v/71.html" class="cover lazy" data-bg="http://p.qpic.cn/cover/71/600" title="海贼王在线观看"></a>
+        <a class="title" href="/v/71.html" title="海贼王">海贼王</a>
+        <span class="desc">第1122话</span>
+      </div></li>
+      <li><div class="item">
+        <a href="/v/4342.html" class="cover lazy" data-bg="http://p.qpic.cn/cover/4342/600" title="仙逆在线观看"></a>
+        <a class="title" href="/v/4342.html" title="仙逆">仙逆</a>
+        <span class="desc">第30话</span>
+      </div></li>
+    </ul>
+  </body>
+</html>
+''';
+
+      final executor = _FakeExecutor([homeHtml]);
+      final legacyEngine = RuleEngine(
+        requestExecutor: executor,
+        logFailures: false,
+      );
+      final engine = MediaRuleEngine(legacyEngine: legacyEngine);
+
+      // Mirrors the shipped assets/plugins/DM84.json homeConfig.
+      final rule = MediaRule(
+        version: '9',
+        id: 'dm84',
+        name: 'DM84',
+        baseUrl: 'https://dmbus.cc/',
+        home: RuleHome(
+          url: 'https://dmbus.cc/',
+          itemXPath: RuleSearchItemXPath(
+            itemXPath: '//div[@class="item"]',
+            titleXPath: './/a[@class="title"]',
+            detailUrlXPath: './/a[@class="title"]',
+            coverXPath: './/a/@data-bg',
+          ),
+        ),
+      );
+
+      final result = await engine.queryHome(rule);
+
+      expect(result.items, hasLength(2));
+      expect(result.items[0].title, '海贼王');
+      expect(result.items[0].detailUrl, 'https://dmbus.cc/v/71.html');
+      expect(result.items[0].cover, 'http://p.qpic.cn/cover/71/600');
+      expect(result.items[1].title, '仙逆');
+      expect(result.items[1].detailUrl, 'https://dmbus.cc/v/4342.html');
+      expect(result.items[1].cover, 'http://p.qpic.cn/cover/4342/600');
+    });
+
     test('queryHome falls back to baseUrl when home url is empty', () async {
       const homeHtml = '''
 <html>

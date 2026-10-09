@@ -3,15 +3,19 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/settings/settings_detail_scaffold.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
+import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/roads/road_module.dart';
 import 'package:kazumi/modules/search/plugin_search_module.dart';
 import 'package:kazumi/pages/plugin_editor/rule_management_widgets.dart';
 import 'package:kazumi/plugins/api_rule_config.dart';
 import 'package:kazumi/plugins/plugins.dart';
 import 'package:kazumi/services/logging/logger.dart';
+import 'package:kazumi/services/media/media_rule_engine.dart';
+import 'package:kazumi/services/media/plugin_rule_extension.dart';
 
 const _h8 = SizedBox(height: 8.0);
 const _h12 = SizedBox(height: 12.0);
@@ -48,6 +52,16 @@ class _PluginTestPageState extends State<PluginTestPage> {
   final Map<int, String> _itemFragmentMap = {};
   int? _shownFragmentIndex;
 
+  // Home-recommendation test state (independent of the keyword-driven
+  // search/chapter flow: the home page needs no keyword).
+  String homeRaw = "";
+  List<MediaItem>? homeItems;
+  List<String> homeDiagnostics = [];
+  bool _hasRunHome = false;
+  bool _isTestingHome = false;
+  String homeErrorMsg = "";
+  CancelToken? _homeCancelToken;
+
   bool get _hasSearchRaw => searchRaw.isNotEmpty;
 
   bool get _hasSearchData => searchRes?.data.isNotEmpty ?? false;
@@ -56,6 +70,10 @@ class _PluginTestPageState extends State<PluginTestPage> {
 
   bool get _needChapterParse =>
       plugin.chapterMode == RuleMode.api || plugin.chapterRoads.isNotEmpty;
+
+  bool get _hasHomeData => homeItems?.isNotEmpty ?? false;
+
+  bool get _needHomeTest => plugin.homeConfig.isConfigured;
 
   CancelToken? _testCancelToken;
 
@@ -70,6 +88,7 @@ class _PluginTestPageState extends State<PluginTestPage> {
   @override
   void dispose() {
     _testCancelToken?.cancel();
+    _homeCancelToken?.cancel();
     testKeywordController.dispose();
     searchRawScrollController.dispose();
     chapterScrollController.dispose();
@@ -92,6 +111,14 @@ class _PluginTestPageState extends State<PluginTestPage> {
         chapterDiagnostics = [];
         _itemFragmentMap.clear();
         _shownFragmentIndex = null;
+        _homeCancelToken?.cancel();
+        _homeCancelToken = null;
+        homeRaw = "";
+        homeItems = null;
+        homeDiagnostics = [];
+        _hasRunHome = false;
+        _isTestingHome = false;
+        homeErrorMsg = "";
       });
 
   void _toggleFragment(int index) => setState(
@@ -145,6 +172,46 @@ class _PluginTestPageState extends State<PluginTestPage> {
     }
   }
 
+  /// Tests the rule's home-recommendation XPath against the real home page.
+  /// Independent of the keyword flow: no keyword is needed, and results
+  /// show per-item title/link/cover so each XPath can be verified.
+  Future<void> _startHomeTest() async {
+    if (_isTestingHome) return;
+    _homeCancelToken?.cancel();
+    final cancelToken = _homeCancelToken = CancelToken();
+    setState(() {
+      _isTestingHome = true;
+      _hasRunHome = true;
+      homeRaw = "";
+      homeItems = null;
+      homeDiagnostics = [];
+      homeErrorMsg = "";
+    });
+    try {
+      final engine = inject<MediaRuleEngine>();
+      final result = await engine.queryHome(
+        plugin.toMediaRule(),
+        cancelToken: cancelToken,
+      );
+      if (!mounted) return;
+      setState(() {
+        homeRaw = result.rawResponse;
+        homeItems = result.items;
+        homeDiagnostics = result.diagnostics;
+      });
+    } catch (error, stack) {
+      if (!mounted) return;
+      KazumiLogger().e(
+        'PluginTest: home test failed',
+        error: error,
+        stackTrace: stack,
+      );
+      setState(() => homeErrorMsg = error.toString());
+    } finally {
+      if (mounted) setState(() => _isTestingHome = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -170,7 +237,9 @@ class _PluginTestPageState extends State<PluginTestPage> {
                 children: [
                   RulePageIntro(
                     title: plugin.name,
-                    description: '一次测试，检查搜索请求、结果解析和播放线路。',
+                    description: _needHomeTest
+                        ? '检查搜索请求、结果解析、播放线路和首页推荐。'
+                        : '一次测试，检查搜索请求、结果解析和播放线路。',
                     icon: Icons.science_outlined,
                   ),
                   const SizedBox(height: 20),
@@ -232,6 +301,17 @@ class _PluginTestPageState extends State<PluginTestPage> {
                       completed: _hasChapters,
                       expanded: _hasChapters,
                       child: _buildChapterContent(theme)),
+                  if (_needHomeTest) ...[
+                    _h12,
+                    _buildExpansionTile(
+                        theme: theme,
+                        number: 4,
+                        title: '首页推荐',
+                        subtitle: _getHomeSubtitle(),
+                        completed: _hasHomeData,
+                        expanded: _hasHomeData,
+                        child: _buildHomeContent(theme)),
+                  ],
                 ],
               ),
             ),
@@ -251,14 +331,19 @@ class _PluginTestPageState extends State<PluginTestPage> {
     required Widget child,
   }) {
     final colors = theme.colorScheme;
-    final failed = _hasRun &&
-        !isTesting &&
-        !completed &&
-        switch (number) {
-          1 => true,
-          2 => _hasSearchRaw,
-          _ => _hasSearchData && _needChapterParse,
-        };
+    final failed = completed
+        ? false
+        : switch (number) {
+            1 => _hasRun && !isTesting,
+            2 => _hasRun && !isTesting && _hasSearchRaw,
+            3 => _hasRun &&
+                !isTesting &&
+                _hasSearchData &&
+                _needChapterParse,
+            // Home test runs independently of the keyword flow, so it
+            // fails on its own run state, not the search one.
+            _ => _hasRunHome && !_isTestingHome,
+          };
     final foreground = completed
         ? colors.onTertiaryContainer
         : failed
@@ -269,7 +354,7 @@ class _PluginTestPageState extends State<PluginTestPage> {
       borderRadius: BorderRadius.circular(28),
       clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
-        key: ValueKey('$number-$_hasRun-$completed'),
+        key: ValueKey('$number-$_hasRun-$_hasRunHome-$completed'),
         tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         leading: Container(
@@ -544,6 +629,151 @@ class _PluginTestPageState extends State<PluginTestPage> {
               _codePanel(fragment, theme, controller: fragmentScrollController),
         ),
     ]);
+  }
+
+  String _getHomeSubtitle() {
+    if (_isTestingHome) return '正在请求推荐页…';
+    if (!_hasRunHome) return '等待测试';
+    if (homeErrorMsg.isNotEmpty) return '测试失败';
+    if (homeItems == null) return '未获取推荐数据';
+    if (!_hasHomeData) return '未解析到推荐内容';
+    final skipped =
+        homeDiagnostics.isEmpty ? '' : '，跳过 ${homeDiagnostics.length} 条';
+    return '解析到 ${homeItems!.length} 条推荐$skipped';
+  }
+
+  Widget _buildHomeContent(ThemeData theme) {
+    if (_isTestingHome) return _buildLoading(theme);
+    if (!_hasRunHome) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildEmpty('使用规则中填写的首页推荐 XPath 抓取推荐页并解析。', theme),
+          _h8,
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: FilledButton.icon(
+              style:
+                  FilledButton.styleFrom(minimumSize: const Size(132, 48)),
+              onPressed: _startHomeTest,
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('测试首页推荐'),
+            ),
+          ),
+        ],
+      );
+    }
+    if (homeErrorMsg.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildEmpty('测试失败：$homeErrorMsg', theme, isError: true),
+          _h8,
+          TextButton(
+            onPressed: _startHomeTest,
+            child: const Text('重试'),
+          ),
+        ],
+      );
+    }
+    if (!_hasHomeData) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildEmpty(
+            '未解析到推荐内容，请检查推荐列表、名称、链接 XPath。'
+            '原始响应如下，可对照页面结构调整：',
+            theme,
+            isError: true,
+          ),
+          _codePanel(homeRaw, theme),
+        ],
+      );
+    }
+
+    return Column(children: [
+      _buildDiagnosticsWidget(homeDiagnostics, theme),
+      ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: homeItems!.length,
+        itemBuilder: (_, i) => _buildHomeItemCard(homeItems![i], i, theme),
+      ),
+      _h8,
+    ]);
+  }
+
+  /// One recommendation card: cover thumbnail, title, detail link, and an
+  /// explicit verdict on whether the cover XPath/heuristics produced a URL.
+  Widget _buildHomeItemCard(MediaItem item, int i, ThemeData theme) {
+    final colors = theme.colorScheme;
+    final hasCover = item.cover != null && item.cover!.isNotEmpty;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8.0),
+      elevation: 0,
+      color: colors.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 48,
+                height: 68,
+                child: hasCover
+                    ? Image.network(
+                        item.cover!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: colors.surfaceContainerLow,
+                          child: Icon(Icons.broken_image_outlined,
+                              size: 20, color: colors.onSurfaceVariant),
+                        ),
+                      )
+                    : Container(
+                        color: colors.surfaceContainerLow,
+                        child: Icon(Icons.image_not_supported_outlined,
+                            size: 20, color: colors.onSurfaceVariant),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${i + 1}：${item.title}',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w500),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  _h8,
+                  SelectableText(
+                    '链接：${item.detailUrl ?? '（空）'}',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: colors.onSurfaceVariant),
+                  ),
+                  _h8,
+                  SelectableText(
+                    hasCover ? '封面：${item.cover}' : '封面：未提取到',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: hasCover
+                          ? colors.tertiary
+                          : colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _getChapterSubtitle() {
