@@ -249,7 +249,7 @@ class _Section extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(title, style: theme.textTheme.titleMedium),
-              ?trailing,
+              if (trailing != null) trailing!,
             ],
           ),
         ),
