@@ -417,10 +417,18 @@ class HistoryRepository implements IHistoryRepository {
   /// Only fills empty slots — a stored cover is never overwritten, and the
   /// title etc. stay untouched so progress keys remain stable.
   void _backfillHistoryCover(History history, BangumiItem fresh) {
-    final images = history.bangumiItem.images;
-    if (images['large'] != null && images['large']!.isNotEmpty) return;
+    final item = history.bangumiItem;
+    final images = item.images;
+    final stored = images['large'];
+    if (stored != null && stored.isNotEmpty) return;
     final freshCover = fresh.images['large'] ?? fresh.images['common'];
     if (freshCover == null || freshCover.isEmpty) return;
-    images['large'] = freshCover;
+    try {
+      images['large'] = freshCover;
+    } on UnsupportedError {
+      // Unmodifiable map (e.g. const-constructed item): swap in a mutable
+      // copy instead of mutating in place.
+      item.images = {...images, 'large': freshCover};
+    }
   }
 }
