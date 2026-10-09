@@ -532,11 +532,10 @@ void main() {
 }
 
 class _FakeExecutor implements RuleRequestExecutor {
-  _FakeExecutor(List<String> responses, {this.error})
+  _FakeExecutor(List<String> responses)
       : _responses = List<String>.of(responses);
 
   final List<String> _responses;
-  final Object? error;
   final List<PreparedRuleRequest> requests = [];
 
   @override
@@ -546,7 +545,7 @@ class _FakeExecutor implements RuleRequestExecutor {
     CancelToken? cancelToken,
   }) async {
     requests.add(request);
-    if (error != null) throw error!;
+    if (_responses.isEmpty) return '<html><body>empty</body></html>';
     return _responses.removeAt(0);
   }
 }
