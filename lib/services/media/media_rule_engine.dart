@@ -318,7 +318,12 @@ class MediaRuleEngine {
       final coverPath = coverXPath?.trim() ?? '';
       if (coverPath.isNotEmpty) {
         final cover = _extractFromXPathNode(node, coverPath);
-        if (cover != null) item = item.copyWith(cover: cover);
+        if (cover != null) {
+          // Sites may store relative cover URLs; resolve them like the
+          // heuristic path does (absolute URLs pass through unchanged).
+          final resolved = _resolveImageUrl(baseUrl, cover) ?? cover;
+          item = item.copyWith(cover: resolved);
+        }
       }
       if (item.cover == null || item.cover!.isEmpty) {
         final heuristic = _firstImageInNode(node, baseUrl);
@@ -446,21 +451,85 @@ class MediaRuleEngine {
 
   String? _extractXPath(Element root, String? xpath) {
     if (xpath == null || xpath.trim().isEmpty) return null;
-    final node = root.queryXPath(xpath).node;
-    if (node == null) return null;
-    final text = node.text?.trim();
-    if (text != null && text.isNotEmpty) return text;
-    final attrs = node.attributes.values;
-    return attrs.isNotEmpty ? attrs.first.trim() : null;
+    final trimmed = xpath.trim();
+
+    // Attribute query (`…/@attr`): select the element part and read the
+    // named attribute. The XPath library returns the element for such
+    // queries, so attributes.values.first would pick whatever attribute
+    // happens to come first — href on a cover anchor, not its data-bg.
+    final attrQuery = _splitAttributeXPath(trimmed);
+    if (attrQuery != null) {
+      final (elementPath, attrName) = attrQuery;
+      try {
+        if (elementPath.isEmpty || elementPath == '.') {
+          return _nonEmpty(root.attributes[attrName]?.trim());
+        }
+        for (final element in root.queryXPath(elementPath).nodes) {
+          final value = _nonEmpty(element.attributes[attrName]?.trim());
+          if (value != null) return value;
+        }
+        return null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    try {
+      final node = root.queryXPath(trimmed).node;
+      if (node == null) return null;
+      final text = node.text?.trim();
+      if (text != null && text.isNotEmpty) return text;
+      final attrs = node.attributes.values;
+      return attrs.isNotEmpty ? attrs.first.trim() : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   String? _extractFromXPathNode(XPathNode<Node> parent, String xpath) {
     if (xpath.trim().isEmpty) return null;
-    final node = parent.queryXPath(xpath).node;
-    if (node == null) return null;
-    final text = node.text?.trim();
-    if (text != null && text.isNotEmpty) return text;
-    final attrs = node.attributes.values;
-    return attrs.isNotEmpty ? attrs.first.trim() : null;
+    final trimmed = xpath.trim();
+
+    final attrQuery = _splitAttributeXPath(trimmed);
+    if (attrQuery != null) {
+      final (elementPath, attrName) = attrQuery;
+      try {
+        final elements = elementPath.isEmpty || elementPath == '.'
+            ? <XPathNode<Node>>[parent]
+            : parent.queryXPath(elementPath).nodes;
+        for (final element in elements) {
+          final value = _nonEmpty(element.attributes[attrName]?.trim());
+          if (value != null) return value;
+        }
+        return null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    try {
+      final node = parent.queryXPath(trimmed).node;
+      if (node == null) return null;
+      final text = node.text?.trim();
+      if (text != null && text.isNotEmpty) return text;
+      final attrs = node.attributes.values;
+      return attrs.isNotEmpty ? attrs.first.trim() : null;
+    } catch (_) {
+      return null;
+    }
   }
+
+  /// Splits an XPath ending in an explicit attribute step (`…/@attr`) into
+  /// the element path and the attribute name.
+  ///
+  /// Returns null for element/text queries (`…/a`, `…/p/text()`), which
+  /// keep their existing extraction semantics.
+  (String, String)? _splitAttributeXPath(String xpath) {
+    final match = RegExp(r'/@([A-Za-z_][\w:.-]*)$').firstMatch(xpath);
+    if (match == null) return null;
+    return (xpath.substring(0, match.start), match.group(1)!);
+  }
+
+  static String? _nonEmpty(String? value) =>
+      value != null && value.isNotEmpty ? value : null;
 }
