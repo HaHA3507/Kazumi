@@ -164,6 +164,21 @@ abstract class _VideoPageController with Store implements Disposable {
         src = args.src;
         roadList.clear();
         roadList.addAll(args.roads);
+        if (args.initialEpisode > 0) {
+          // The caller picked a specific episode/road before entering the
+          // player (e.g. tapped one on the detail page): start there instead
+          // of restoring the last-watched position.
+          final road = args.initialRoad >= 0 &&
+                  args.initialRoad < roadList.length
+              ? args.initialRoad
+              : 0;
+          final maxEpisode =
+              roadList.isNotEmpty ? roadList[road].data.length : 0;
+          final episode =
+              args.initialEpisode <= maxEpisode ? args.initialEpisode : 1;
+          resetEpisodeState(episode: episode, road: road);
+          hasExplicitStartSelection = true;
+        }
       case OfflineVideoPlaybackArgs():
         _initForOfflinePlayback(
           bangumiItem: args.bangumiItem,
@@ -174,6 +189,10 @@ abstract class _VideoPageController with Store implements Disposable {
         );
     }
   }
+
+  /// Set when route arguments carry an explicit start episode; suppresses
+  /// the last-watched-position restore in [VideoPage._initOnlineMode].
+  bool hasExplicitStartSelection = false;
 
   @action
   void _initForOfflinePlayback({

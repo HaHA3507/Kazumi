@@ -19,12 +19,22 @@ class OnlineVideoPlaybackArgs extends VideoPlaybackArgs {
     required this.title,
     required this.src,
     required this.roads,
+    this.initialEpisode = 0,
+    this.initialRoad = 0,
   });
 
   final Plugin plugin;
   final String title;
   final String src;
   final List<Road> roads;
+
+  /// 1-based episode list index to start playback at. 0 means "not set" —
+  /// the player restores the last-watched position (or episode 1) as usual.
+  final int initialEpisode;
+
+  /// 0-based road index to start playback at. Only used when
+  /// [initialEpisode] is set.
+  final int initialRoad;
 }
 
 class OfflineVideoPlaybackArgs extends VideoPlaybackArgs {

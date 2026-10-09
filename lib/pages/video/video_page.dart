@@ -163,9 +163,14 @@ class _VideoPageState extends State<VideoPage>
   void _initOnlineMode() {
     videoPageController.historyOffset = 0;
 
-    var progress = historyController.lastWatching(
-        videoPageController.bangumiItem,
-        videoPageController.currentPlugin.name);
+    // Route args may carry an explicit start episode (the user tapped a
+    // specific episode on the detail page); only restore the last-watched
+    // position when they did not.
+    var progress = videoPageController.hasExplicitStartSelection
+        ? null
+        : historyController.lastWatching(
+            videoPageController.bangumiItem,
+            videoPageController.currentPlugin.name);
     if (progress != null) {
       if (videoPageController.roadList.length > progress.road) {
         if (videoPageController.roadList[progress.road].data.length >=

@@ -4,6 +4,7 @@ import 'package:html/parser.dart';
 import 'package:kazumi/modules/media/media_detail.dart';
 import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/media/media_rule.dart';
+import 'package:kazumi/plugins/api_rule_config.dart' show RuleMode;
 import 'package:kazumi/services/media/media_rule_models.dart';
 import 'package:kazumi/services/plugin/rule_engine.dart' as legacy;
 import 'package:kazumi/utils/episode_url.dart';
@@ -67,6 +68,13 @@ class MediaRuleEngine {
         trace.rawResponse,
         config,
       );
+    }
+
+    // Heuristic cover fallback: pull the first <img> out of each search
+    // result node so legacy rules (no cover XPath configured) still show
+    // posters in search results.
+    if (items.isNotEmpty) {
+      _heuristicCoverFallback(items, trace.rawResponse, config);
     }
 
     return MediaSearchResult(
@@ -196,30 +204,137 @@ class MediaRuleEngine {
     String rawHtml,
     MediaRuleExecutionConfig config,
   ) {
-    final root = _documentElement(rawHtml);
-    final nodes = root.queryXPath(config.searchList).nodes;
+    if (config.searchMode != RuleMode.xpath) return;
+    final nodes = _searchNodes(rawHtml, config);
+    if (nodes == null) return;
 
-    if (nodes.length != items.length) {
-      // Node count mismatch — skip enrichment, the base items are still valid.
-      return;
-    }
-
-    for (var i = 0; i < nodes.length; i++) {
-      final node = nodes[i];
-      final item = items[i];
+    // Walk nodes in lockstep with the legacy parser: it skips nodes that
+    // lack a name or href, so the item cursor only advances on nodes that
+    // actually produced an item.
+    var itemIndex = 0;
+    for (final node in nodes) {
+      if (itemIndex >= items.length) break;
+      if (!_nodeProducesItem(node, config)) continue;
+      var item = items[itemIndex];
+      itemIndex++;
 
       if (config.searchCoverXPath != null) {
         final cover = _extractFromXPathNode(node, config.searchCoverXPath!);
-        if (cover != null) items[i] = item.copyWith(cover: cover);
+        if (cover != null) item = item.copyWith(cover: cover);
       }
       if (config.searchDescriptionXPath != null) {
         final desc = _extractFromXPathNode(node, config.searchDescriptionXPath!);
-        if (desc != null) items[i] = items[i].copyWith(description: desc);
+        if (desc != null) item = item.copyWith(description: desc);
       }
       if (config.searchYearXPath != null) {
         final year = _extractFromXPathNode(node, config.searchYearXPath!);
-        if (year != null) items[i] = items[i].copyWith(year: year);
+        if (year != null) item = item.copyWith(year: year);
       }
+      items[itemIndex - 1] = item;
+    }
+  }
+
+  /// Extracts cover images for search results that lack one, without any
+  /// rule configuration: within each search result node, find the first
+  /// `<img>` and read its real image URL from common lazy-loading
+  /// attributes (data-original/data-src/...) before falling back to src.
+  void _heuristicCoverFallback(
+    List<MediaItem> items,
+    String rawHtml,
+    MediaRuleExecutionConfig config,
+  ) {
+    if (items.every((item) => item.cover != null && item.cover!.isNotEmpty)) {
+      return;
+    }
+    if (config.searchMode != RuleMode.xpath) return;
+    final nodes = _searchNodes(rawHtml, config);
+    if (nodes == null) return;
+
+    var itemIndex = 0;
+    for (final node in nodes) {
+      if (itemIndex >= items.length) break;
+      if (!_nodeProducesItem(node, config)) continue;
+      final item = items[itemIndex];
+      itemIndex++;
+      if (item.cover != null && item.cover!.isNotEmpty) continue;
+      final cover = _firstImageInNode(node, config.baseUrl);
+      if (cover != null) items[itemIndex - 1] = item.copyWith(cover: cover);
+    }
+  }
+
+  List<XPathNode<Node>>? _searchNodes(
+    String rawHtml,
+    MediaRuleExecutionConfig config,
+  ) {
+    final searchList = config.searchList.trim();
+    if (searchList.isEmpty) return null;
+    try {
+      final root = _documentElement(rawHtml);
+      return root.queryXPath(searchList).nodes;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Mirrors the legacy parser's validity check so the node-to-item cursor
+  /// stays aligned when the parser skipped nodes.
+  bool _nodeProducesItem(
+    XPathNode<Node> node,
+    MediaRuleExecutionConfig config,
+  ) {
+    try {
+      final name = node.queryXPath(config.searchName).node?.text?.trim() ?? '';
+      final href =
+          node.queryXPath(config.searchResult).node?.attributes['href']
+              ?.trim() ??
+          '';
+      return name.isNotEmpty && href.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String? _firstImageInNode(XPathNode<Node> node, String baseUrl) {
+    List<XPathNode<Node>> imgs;
+    try {
+      imgs = node.queryXPath('.//img').nodes;
+    } catch (_) {
+      return null;
+    }
+    // Lazy-loading sites put the real image in data-* attributes while src
+    // holds a placeholder, so prefer them before falling back to src.
+    const attributeOrder = [
+      'data-original',
+      'data-src',
+      'data-lazy-src',
+      'data-echo',
+      'src',
+    ];
+    for (final img in imgs) {
+      final attributes = img.attributes;
+      for (final name in attributeOrder) {
+        final value = attributes[name]?.trim();
+        if (value == null || value.isEmpty) continue;
+        final resolved = _resolveImageUrl(baseUrl, value);
+        if (resolved != null) return resolved;
+      }
+    }
+    return null;
+  }
+
+  String? _resolveImageUrl(String baseUrl, String raw) {
+    final value = raw.trim();
+    if (value.isEmpty || value.startsWith('data:')) return null;
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    if (value.startsWith('//')) return 'https:$value';
+    final base = Uri.tryParse(baseUrl);
+    if (base == null || !base.hasScheme) return null;
+    try {
+      return base.resolve(value).toString();
+    } catch (_) {
+      return null;
     }
   }
 

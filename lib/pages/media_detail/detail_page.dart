@@ -1,22 +1,26 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:html/parser.dart';
 import 'package:kazumi/modules/media/media_detail.dart';
 import 'package:kazumi/modules/media/media_item.dart';
 import 'package:kazumi/modules/roads/road_module.dart';
 import 'package:kazumi/plugins/plugins.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
-import 'package:kazumi/services/media/media_item_adapter.dart';
 import 'package:kazumi/services/media/media_deduplicator.dart';
 import 'package:kazumi/services/media/media_episode_service.dart';
+import 'package:kazumi/services/media/media_item_adapter.dart';
 import 'package:kazumi/services/media/plugin_rule_extension.dart';
 import 'package:kazumi/pages/video/video_playback_args.dart';
+import 'package:xpath_selector_html_parser/xpath_selector_html_parser.dart';
 
-/// Universal media detail page — shows media info and episode groups.
+/// Universal media detail page — shows media info and ALL playback lines
+/// from ALL sources that returned this content.
 ///
-/// Replaces the Bangumi-centric InfoPage. Accepts a [DeduplicatedMediaItem]
-/// (or a plain [MediaItem]) as route argument. Uses [MediaEpisodeService]
-/// to fetch episodes from the selected source.
+/// Accepts a [DeduplicatedMediaItem] (or a plain [MediaItem]) as route
+/// argument. Loads episodes from every variant concurrently and displays
+/// every episode group (road) of every source, so the user sees the full
+/// 线路 list instead of just one.
 class MediaDetailPage extends StatefulWidget {
   const MediaDetailPage({super.key, this.item});
 
@@ -32,11 +36,9 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
 
   DeduplicatedMediaItem? _dedupItem;
   MediaItem? _selectedItem;
-  int _selectedVariantIndex = 0;
 
-  List<MediaEpisodeGroup> _episodeGroups = [];
+  List<_SourceEpisodes> _sources = [];
   bool _isLoading = false;
-  String? _errorMessage;
 
   @override
   void initState() {
@@ -47,8 +49,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
     final args = widget.item;
     if (args is DeduplicatedMediaItem) {
       _dedupItem = args;
-      _selectedVariantIndex = 0;
-      _selectedItem = args.variants.first;
+      _selectedItem = args.primary;
     } else if (args is MediaItem) {
       _selectedItem = args;
       _dedupItem = DeduplicatedMediaItem(
@@ -62,42 +63,102 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
     }
   }
 
+  /// Loads episodes from EVERY source (dedup variant) concurrently, so the
+  /// full line list from all sources is visible at once.
   Future<void> _loadEpisodes() async {
-    final item = _selectedItem;
-    if (item == null) return;
+    final variants = _dedupItem?.variants.toList() ?? const <MediaItem>[];
+    if (variants.isEmpty) return;
 
+    setState(() => _isLoading = true);
+
+    final results = await Future.wait(
+      variants.map((variant) => _loadSourceEpisodes(variant)),
+    );
+
+    if (!mounted) return;
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _sources = results;
+      _isLoading = false;
     });
+    _fillMissingCover(results);
+  }
 
+  Future<_SourceEpisodes> _loadSourceEpisodes(MediaItem item) async {
     final plugin = _findPlugin(item.sourceId);
     if (plugin == null) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '未找到来源规则: ${item.sourceId}';
-      });
-      return;
+      return _SourceEpisodes(
+        plugin: null,
+        item: item,
+        groups: const [],
+        rawHtml: '',
+        error: '未找到来源规则: ${item.sourceId}',
+      );
     }
-
-    final rule = plugin.toMediaRule();
-
     try {
-      final result = await _episodeService.queryEpisodes(rule, item);
-      if (mounted) {
-        setState(() {
-          _episodeGroups = result.groups;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = e.toString();
-        });
+      final result = await _episodeService.queryEpisodes(
+        plugin.toMediaRule(),
+        item,
+      );
+      return _SourceEpisodes(
+        plugin: plugin,
+        item: item,
+        groups: result.groups,
+        rawHtml: result.rawResponse,
+        error: null,
+      );
+    } catch (error) {
+      return _SourceEpisodes(
+        plugin: plugin,
+        item: item,
+        groups: const [],
+        rawHtml: '',
+        error: error.toString(),
+      );
+    }
+  }
+
+  /// When the primary item still has no cover (search heuristics failed),
+  /// try og:image from one of the loaded detail pages.
+  void _fillMissingCover(List<_SourceEpisodes> sources) {
+    final current = _selectedItem;
+    if (current == null || current.cover != null) return;
+    for (final source in sources) {
+      final ogImage = _extractOgImage(
+        source.rawHtml,
+        source.plugin?.baseUrl ?? '',
+      );
+      if (ogImage != null) {
+        if (!mounted) return;
+        setState(() => _selectedItem = current.copyWith(cover: ogImage));
+        return;
       }
     }
+  }
+
+  String? _extractOgImage(String html, String baseUrl) {
+    if (html.trim().isEmpty) return null;
+    try {
+      final root = parse(html).documentElement;
+      if (root == null) return null;
+      final nodes = root.queryXPath('//meta[@property="og:image"]').nodes;
+      for (final node in nodes) {
+        final content = node.attributes['content']?.trim();
+        if (content == null || content.isEmpty) continue;
+        if (content.startsWith('http://') ||
+            content.startsWith('https://')) {
+          return content;
+        }
+        if (content.startsWith('//')) return 'https:$content';
+        final base = Uri.tryParse(baseUrl);
+        if (base != null && base.hasScheme) {
+          try {
+            return base.resolve(content).toString();
+          } catch (_) {}
+        }
+        return content;
+      }
+    } catch (_) {}
+    return null;
   }
 
   Plugin? _findPlugin(String sourceId) {
@@ -109,30 +170,20 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
     return null;
   }
 
-  void _selectVariant(int index) {
-    setState(() {
-      _selectedVariantIndex = index;
-      _selectedItem = _dedupItem!.variants[index];
-      _episodeGroups = [];
-    });
-    _loadEpisodes();
-  }
-
-  void _playEpisode(int groupIndex, int episodeIndex) {
-    final item = _selectedItem;
-    if (item == null) return;
-
-    final plugin = _findPlugin(item.sourceId);
+  /// Plays [episodeIndex] (1-based within [groupIndex]) of [source].
+  ///
+  /// Passes that source's full road list so in-player line switching keeps
+  /// working, plus the explicit start position so the player opens on the
+  /// tapped episode instead of the first one.
+  void _playEpisode(_SourceEpisodes source, int groupIndex, int episodeIndex) {
+    final plugin = source.plugin;
     if (plugin == null) return;
+    final item = source.item;
 
-    // Convert MediaItem → BangumiItem (adapter for existing video page).
-    // Non-Bangumi items get a deterministic synthetic BangumiItem so the
-    // existing player, history and favorites pipeline keeps working.
     final bangumiItem = MediaItemAdapter.toPlaybackBangumiItem(item);
 
-    // Convert MediaEpisodeGroup[] → Road[] (adapter for existing video page).
     final roads = <Road>[];
-    for (final group in _episodeGroups) {
+    for (final group in source.groups) {
       roads.add(Road(
         name: group.title,
         data: group.episodes.map((e) => e.url).toList(),
@@ -146,6 +197,8 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
       title: item.displayTitle,
       src: item.detailUrl ?? '',
       roads: roads,
+      initialEpisode: episodeIndex + 1,
+      initialRoad: groupIndex,
     );
 
     context.pushNamed('/video/', arguments: args);
@@ -175,8 +228,9 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
                   ? CachedNetworkImage(
                       imageUrl: item.cover!,
                       fit: BoxFit.cover,
-                      errorWidget: (context, url, error) =>
-                          Container(color: theme.colorScheme.surfaceContainerHighest),
+                      errorWidget: (context, url, error) => Container(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                      ),
                     )
                   : Container(color: theme.colorScheme.surfaceContainerHighest),
             ),
@@ -184,10 +238,6 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
           SliverToBoxAdapter(
             child: _buildInfoSection(context, theme, item),
           ),
-          if (_dedupItem != null && _dedupItem!.hasMultipleSources)
-            SliverToBoxAdapter(
-              child: _buildSourceSelector(theme),
-            ),
           if (_isLoading)
             const SliverToBoxAdapter(
               child: Padding(
@@ -195,20 +245,8 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
                 child: Center(child: CircularProgressIndicator()),
               ),
             )
-          else if (_errorMessage != null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  _errorMessage!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ),
-            )
           else
-            ..._buildEpisodeSlivers(context, theme),
+            ..._buildSourceSlivers(context, theme),
         ],
       ),
     );
@@ -266,84 +304,157 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
     );
   }
 
-  Widget _buildSourceSelector(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('来源', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: _dedupItem!.variants.asMap().entries.map((entry) {
-              final index = entry.key;
-              final variant = entry.value;
-              return ChoiceChip(
-                label: Text(variant.sourceId),
-                selected: index == _selectedVariantIndex,
-                onSelected: (_) => _selectVariant(index),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildEpisodeSlivers(BuildContext context, ThemeData theme) {
-    if (_episodeGroups.isEmpty) {
-      return [
-        const SliverToBoxAdapter(
+  List<Widget> _buildSourceSlivers(BuildContext context, ThemeData theme) {
+    if (_sources.isEmpty) {
+      return const [
+        SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.all(32),
-            child: Center(child: Text('没有剧集')),
+            child: Center(child: Text('没有可用的播放来源')),
           ),
         ),
       ];
     }
 
     final slivers = <Widget>[];
-    for (var gi = 0; gi < _episodeGroups.length; gi++) {
-      final group = _episodeGroups[gi];
+    for (final source in _sources) {
       slivers.add(
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(group.title, style: theme.textTheme.titleSmall),
-          ),
-        ),
+        SliverToBoxAdapter(child: _buildSourceHeader(theme, source)),
       );
-      slivers.add(
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 100,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 2.5,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (context, ei) {
-                final episode = group.episodes[ei];
-                return FilledButton.tonal(
-                  onPressed: () => _playEpisode(gi, ei),
-                  child: Text(
-                    episode.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                );
-              },
-              childCount: group.episodes.length,
+      if (source.error != null) {
+        slivers.add(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                '加载失败: ${source.error}',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.error),
+              ),
             ),
           ),
-        ),
-      );
+        );
+        continue;
+      }
+      if (source.groups.isEmpty) {
+        slivers.add(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                '没有剧集',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+        );
+        continue;
+      }
+
+      // A source with a single group (one line) needs no group title —
+      // the source header already says it. Only label multiple lines.
+      final showGroupTitles = source.groups.length > 1;
+      for (var groupIndex = 0; groupIndex < source.groups.length; groupIndex++) {
+        final group = source.groups[groupIndex];
+        if (showGroupTitles) {
+          slivers.add(
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                child: Text(group.title, style: theme.textTheme.titleSmall),
+              ),
+            ),
+          );
+        }
+        slivers.add(
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 100,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 2.5,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, episodeIndex) {
+                  final episode = group.episodes[episodeIndex];
+                  return FilledButton.tonal(
+                    onPressed: () =>
+                        _playEpisode(source, groupIndex, episodeIndex),
+                    child: Text(
+                      episode.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                },
+                childCount: group.episodes.length,
+              ),
+            ),
+          ),
+        );
+      }
     }
 
     slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 32)));
     return slivers;
   }
+
+  Widget _buildSourceHeader(ThemeData theme, _SourceEpisodes source) {
+    final name = source.plugin?.name ?? source.item.sourceId;
+    final total = source.groups.fold<int>(
+      0,
+      (sum, group) => sum + group.episodes.length,
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Icon(
+            Icons.source_outlined,
+            size: 18,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              name,
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (source.error == null && total > 0)
+            Text(
+              '$total 集 · ${source.groups.length} 线路',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Episodes loaded from one source (dedup variant), kept together with the
+/// plugin so playback can use the correct headers and road list.
+class _SourceEpisodes {
+  const _SourceEpisodes({
+    required this.plugin,
+    required this.item,
+    required this.groups,
+    required this.rawHtml,
+    required this.error,
+  });
+
+  final Plugin? plugin;
+  final MediaItem item;
+  final List<MediaEpisodeGroup> groups;
+  final String rawHtml;
+  final String? error;
 }
