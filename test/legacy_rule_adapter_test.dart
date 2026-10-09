@@ -142,7 +142,7 @@ void main() {
 
       final rule = LegacyRuleAdapter.fromPlugin(plugin);
 
-      expect(rule.type, MediaType.unknown); // 'tv' is not recognized, but 'anime' maps to MediaType.anime
+      expect(rule.type, MediaType.tv);
     });
 
     test('fromPlugin preserves antiCrawler when enabled', () {

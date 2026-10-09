@@ -79,7 +79,6 @@ void main() {
           sourceId: 'b',
           cover: 'cover.jpg',
           description: 'desc',
-          year: '2024',
         ),
         MediaItem(
           id: 'c:1',
@@ -92,7 +91,7 @@ void main() {
       final result = dedup.deduplicate(items);
 
       expect(result, hasLength(1));
-      // Item 'b:1' has the most metadata (cover + description + year = 7 points)
+      // Item 'b:1' has the most metadata (cover + description = 6 points)
       expect(result.first.primary.id, 'b:1');
       expect(result.first.primary.cover, 'cover.jpg');
     });

@@ -15,6 +15,10 @@ void main() {
   <div class="desc">A detailed description from the detail page.</div>
   <span class="year">2024</span>
   <span class="genre">电视剧</span>
+  <div class="road">
+    <a href="/play/1">第1集</a>
+    <a href="/play/2">第2集</a>
+  </div>
 </html>
 ''';
 

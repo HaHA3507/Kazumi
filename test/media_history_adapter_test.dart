@@ -198,7 +198,7 @@ void main() {
         'EP1',
       );
 
-      expect(history.mediaItemId, 'mysource:99');
+      expect(history.mediaItemId, 'mySource:99');
     });
   });
 
