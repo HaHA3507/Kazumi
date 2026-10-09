@@ -177,7 +177,7 @@ void main() async {
     if (Platform.isAndroid || Platform.isIOS) {
       await startupLog.run('配置系统界面', () async {
         await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-        await SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
           systemNavigationBarColor: Colors.transparent,
           systemNavigationBarDividerColor: Colors.transparent,
           statusBarColor: Colors.transparent,
