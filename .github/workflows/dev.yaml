@@ -173,6 +173,15 @@ jobs:
         run: flutter pub get
 
       # --------------------------------------------------------
+      # Install native build tools
+      #
+      # Same as the official release workflow; needed by media_kit's
+      # native build on the macOS runner.
+      # --------------------------------------------------------
+      - name: Install native build tools
+        run: brew install cmake ninja
+
+      # --------------------------------------------------------
       # Build iOS App
       #
       # No Apple signing is performed here.
@@ -203,8 +212,10 @@ jobs:
       #   └── Payload/
       #       └── Runner.app/
       #
-      # This IPA is NOT Apple signed.
-      # It is used to verify the iOS build/package.
+      # Embedded frameworks are ad-hoc re-signed, matching the official
+      # release workflow. Without this, the frameworks built under
+      # --no-codesign carry invalid signatures; iOS kills the process at
+      # dyld load time, so the app shows only the launch screen.
       # --------------------------------------------------------
       - name: Package iOS IPA
         run: |
@@ -212,6 +223,8 @@ jobs:
           mkdir -p Payload
 
           cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
+
+          find Payload/Runner.app/Frameworks -type d -name "*.framework" -exec codesign --force --sign - --preserve-metadata=identifier,entitlements {} \;
 
           zip -r Kazumi-ios-dev.ipa Payload
 
