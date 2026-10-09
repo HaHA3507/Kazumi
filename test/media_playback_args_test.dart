@@ -5,6 +5,7 @@ import 'package:kazumi/modules/media/media_type.dart';
 import 'package:kazumi/pages/video/media_playback_args.dart';
 import 'package:kazumi/pages/video/video_playback_args.dart';
 import 'package:kazumi/plugins/plugins.dart';
+import 'package:kazumi/services/media/media_item_adapter.dart';
 
 void main() {
   group('MediaPlaybackArgs', () {
