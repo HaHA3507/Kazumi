@@ -40,7 +40,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaSearchService(engine: engine);
+      final service = MediaSearchService(engine);
 
       final ruleA = _makeRule('ruleA', 'https://a.example.com/');
       final ruleB = _makeRule('ruleB', 'https://b.example.com/');
@@ -62,7 +62,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaSearchService(engine: engine);
+      final service = MediaSearchService(engine);
 
       final ruleA = _makeRule('ruleA', 'https://a.example.com/');
       final ruleB = _makeRule('ruleB', 'https://b.example.com/');
@@ -87,7 +87,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaSearchService(engine: engine);
+      final service = MediaSearchService(engine);
 
       final ruleA = _makeRule('ruleA', 'https://a.example.com/');
       final ruleB = _makeRule('ruleB', 'https://b.example.com/');
@@ -109,7 +109,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaSearchService(engine: engine);
+      final service = MediaSearchService(engine);
 
       final ruleA = _makeRule('ruleA', 'https://a.example.com/');
 
@@ -126,7 +126,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaSearchService(engine: engine);
+      final service = MediaSearchService(engine);
 
       final ruleA = _makeRule('ruleA', 'https://a.example.com/');
       final ruleB = _makeRule('ruleB', 'https://b.example.com/');
@@ -155,7 +155,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaSearchService(engine: engine);
+      final service = MediaSearchService(engine);
 
       final rule = _makeRule('single', 'https://example.com/');
 
@@ -173,7 +173,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaSearchService(engine: engine);
+      final service = MediaSearchService(engine);
 
       final rule = _makeRule('test', 'https://example.com/');
 
@@ -198,7 +198,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaSearchService(engine: engine);
+      final service = MediaSearchService(engine);
 
       final rule = MediaRule(
         version: '9',

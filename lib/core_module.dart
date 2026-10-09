@@ -52,15 +52,9 @@ final coreModule = createModule(
       ..addSingleton<DownloadController>(DownloadController.new)
       // Universal media services (Phase 2-4).
       ..addSingleton<MediaRuleEngine>(MediaRuleEngine.new)
-      ..addSingleton<MediaSearchService>(
-        (i) => MediaSearchService(engine: i.get<MediaRuleEngine>()),
-      )
-      ..addSingleton<MediaDetailService>(
-        (i) => MediaDetailService(engine: i.get<MediaRuleEngine>()),
-      )
-      ..addSingleton<MediaEpisodeService>(
-        (i) => MediaEpisodeService(engine: i.get<MediaRuleEngine>()),
-      )
+      ..addSingleton<MediaSearchService>(MediaSearchService.new)
+      ..addSingleton<MediaDetailService>(MediaDetailService.new)
+      ..addSingleton<MediaEpisodeService>(MediaEpisodeService.new)
       ..addSingleton<MediaStreamResolver>(MediaStreamResolver.new);
   },
 );

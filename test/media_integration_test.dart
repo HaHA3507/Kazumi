@@ -44,8 +44,8 @@ void main() {
         logFailures: false,
       );
       final mediaEngine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final searchService = MediaSearchService(engine: mediaEngine);
-      final episodeService = MediaEpisodeService(engine: mediaEngine);
+      final searchService = MediaSearchService(mediaEngine);
+      final episodeService = MediaEpisodeService(mediaEngine);
 
       // Step 1: Create a rule.
       final rule = MediaRule(
@@ -174,8 +174,8 @@ void main() {
         logFailures: false,
       );
       final mediaEngine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final searchService = MediaSearchService(engine: mediaEngine);
-      final episodeService = MediaEpisodeService(engine: mediaEngine);
+      final searchService = MediaSearchService(mediaEngine);
+      final episodeService = MediaEpisodeService(mediaEngine);
 
       // Create a legacy Plugin and convert to MediaRule.
       final plugin = Plugin(
@@ -238,7 +238,7 @@ void main() {
         logFailures: false,
       );
       final mediaEngine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final searchService = MediaSearchService(engine: mediaEngine);
+      final searchService = MediaSearchService(mediaEngine);
 
       final ruleA = _makeRule('sourceA', 'https://a.example.com/');
       final ruleB = _makeRule('sourceB', 'https://b.example.com/');

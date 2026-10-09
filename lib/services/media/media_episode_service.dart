@@ -12,7 +12,7 @@ import 'package:kazumi/services/media/media_rule_models.dart';
 /// (线路) in the legacy model. Groups may represent different playback
 /// sources, seasons, or quality lines depending on the rule.
 class MediaEpisodeService {
-  MediaEpisodeService({required MediaRuleEngine engine}) : _engine = engine;
+  MediaEpisodeService(this._engine);
 
   final MediaRuleEngine _engine;
 

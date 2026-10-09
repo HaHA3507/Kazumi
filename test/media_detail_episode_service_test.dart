@@ -40,7 +40,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaDetailService(engine: engine);
+      final service = MediaDetailService(engine);
 
       final rule = MediaRule(
         version: '9',
@@ -74,7 +74,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaDetailService(engine: engine);
+      final service = MediaDetailService(engine);
 
       final rule = MediaRule(
         version: '9',
@@ -119,7 +119,7 @@ void main() {
       final engine = MediaRuleEngine(
         legacyEngine: RuleEngine(logFailures: false),
       );
-      final service = MediaDetailService(engine: engine);
+      final service = MediaDetailService(engine);
 
       final rule = MediaRule(
         version: '9',
@@ -152,7 +152,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaEpisodeService(engine: engine);
+      final service = MediaEpisodeService(engine);
 
       final rule = MediaRule(
         version: '9',
@@ -198,7 +198,7 @@ void main() {
         logFailures: false,
       );
       final engine = MediaRuleEngine(legacyEngine: legacyEngine);
-      final service = MediaEpisodeService(engine: engine);
+      final service = MediaEpisodeService(engine);
 
       final rule = MediaRule(
         version: '9',
@@ -239,7 +239,7 @@ void main() {
       final engine = MediaRuleEngine(
         legacyEngine: RuleEngine(logFailures: false),
       );
-      final service = MediaEpisodeService(engine: engine);
+      final service = MediaEpisodeService(engine);
 
       final rule = MediaRule(
         version: '9',

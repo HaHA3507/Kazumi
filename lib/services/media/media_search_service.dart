@@ -48,11 +48,10 @@ class MediaSearchResponse {
 /// This service is **UI-agnostic** — it returns data, not observable state.
 /// The caller (Phase 5 UI) is responsible for updating the view.
 class MediaSearchService {
-  MediaSearchService({
-    required MediaRuleEngine engine,
+  MediaSearchService(
+    this._engine, {
     MediaDeduplicator deduplicator = const MediaDeduplicator(),
-  })  : _engine = engine,
-        _deduplicator = deduplicator;
+  }) : _deduplicator = deduplicator;
 
   final MediaRuleEngine _engine;
   final MediaDeduplicator _deduplicator;

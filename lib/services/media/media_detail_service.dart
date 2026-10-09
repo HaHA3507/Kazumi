@@ -11,7 +11,7 @@ import 'package:kazumi/services/media/media_rule_engine.dart';
 /// null — the caller should fall back to the metadata already available in
 /// the [MediaItem] from search results.
 class MediaDetailService {
-  MediaDetailService({required MediaRuleEngine engine}) : _engine = engine;
+  MediaDetailService(this._engine);
 
   final MediaRuleEngine _engine;
 
