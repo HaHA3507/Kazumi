@@ -295,29 +295,65 @@ class MediaRuleEngine {
   }
 
   String? _firstImageInNode(XPathNode<Node> node, String baseUrl) {
+    // Pass 1: real <img> tags. Lazy-loading sites put the real image in
+    // data-* attributes while src holds a placeholder, so prefer them
+    // before falling back to src.
     List<XPathNode<Node>> imgs;
     try {
       imgs = node.queryXPath('.//img').nodes;
     } catch (_) {
-      return null;
+      imgs = const [];
     }
-    // Lazy-loading sites put the real image in data-* attributes while src
-    // holds a placeholder, so prefer them before falling back to src.
-    const attributeOrder = [
+    const lazyAttributes = [
       'data-original',
       'data-src',
       'data-lazy-src',
       'data-echo',
-      'src',
+      'data-bg',
     ];
     for (final img in imgs) {
       final attributes = img.attributes;
-      for (final name in attributeOrder) {
+      for (final name in [...lazyAttributes, 'src']) {
         final value = attributes[name]?.trim();
         if (value == null || value.isEmpty) continue;
         final resolved = _resolveImageUrl(baseUrl, value);
         if (resolved != null) return resolved;
       }
+    }
+
+    // Pass 2: cover links like <a class="cover lazy" data-bg="…"> — sites
+    // (e.g. DM84) render posters as non-<img> elements whose background
+    // image URL lives in a data attribute.
+    // Walk the node subtree directly so this works regardless of which
+    // attribute-selector syntaxes the XPath library supports.
+    final htmlNode = node.node;
+    if (htmlNode != null) {
+      final found = _findLazyImageAttribute(htmlNode, lazyAttributes);
+      if (found != null) {
+        final resolved = _resolveImageUrl(baseUrl, found);
+        if (resolved != null) return resolved;
+      }
+    }
+    return null;
+  }
+
+  /// Depth-first search of [element] and its descendants for the first
+  /// non-empty lazy-loading image attribute from [attributeNames].
+  String? _findLazyImageAttribute(
+    Node node,
+    List<String> attributeNames,
+  ) {
+    if (node is Element) {
+      for (final name in attributeNames) {
+        final value = node.attributes[name]?.trim();
+        if (value != null && value.isNotEmpty) return value;
+      }
+    }
+    for (var child = node.firstChild;
+        child != null;
+        child = child.nextSibling) {
+      final found = _findLazyImageAttribute(child, attributeNames);
+      if (found != null) return found;
     }
     return null;
   }

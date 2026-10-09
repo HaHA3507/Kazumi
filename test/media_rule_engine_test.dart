@@ -435,6 +435,109 @@ void main() {
       expect(result.items.first.year, isNotNull);
     });
 
+    test('heuristic cover extracts <img src> for legacy rules (7sefun)',
+        () async {
+      // Structure taken from 7sefun's real search page.
+      const searchHtml = '''
+<html>
+  <body>
+    <div class="videos">
+      <div class="video">
+        <a class="video-wrapper" href="/voddetail/36123.html">
+          <img class="videoimg" src="http://p.qpic.cn/music_cover/abc/600" alt="斗罗大陆" />
+        </a>
+        <a href="/voddetail/36123.html">斗罗大陆</a>
+      </div>
+    </div>
+  </body>
+</html>
+''';
+
+      final executor = _FakeExecutor([searchHtml]);
+      final legacyEngine = RuleEngine(
+        requestExecutor: executor,
+        logFailures: false,
+      );
+      final engine = MediaRuleEngine(legacyEngine: legacyEngine);
+
+      // Legacy v8-style rule: no cover XPath at all.
+      final rule = MediaRule(
+        version: '9',
+        id: 'sefun',
+        name: '7sefun',
+        baseUrl: 'https://www.7sefun.top/',
+        search: RuleSearch(
+          mode: 'xpath',
+          url: 'https://www.7sefun.top/vodsearch/-------------.html?wd=@keyword',
+          itemXPath: RuleSearchItemXPath(
+            itemXPath: '//div[@class="video"]',
+            titleXPath: './/a[contains(@href,"voddetail")][2]',
+            detailUrlXPath: './/a[contains(@href,"voddetail")]/@href',
+          ),
+        ),
+        episodes: RuleEpisodes(mode: 'xpath'),
+      );
+
+      final result = await engine.search(rule, '斗罗大陆');
+
+      expect(result.items, hasLength(1));
+      expect(result.items.first.cover, 'http://p.qpic.cn/music_cover/abc/600');
+    });
+
+    test('heuristic cover extracts <a data-bg> for legacy rules (DM84)',
+        () async {
+      // Structure taken from DM84's real search page: the poster is a
+      // lazy <a> element with data-bg, NOT an <img> tag.
+      const searchHtml = '''
+<html>
+  <body>
+    <ul>
+      <li>
+        <div class="item">
+          <a href="/v/4183.html" class="cover lazy" data-bg="https://puui.qpic.cn/vcover_vt_pic/0/xyz/260" title="斗罗大陆2：绝世唐门"></a>
+          <a class="title" href="/v/4183.html" title="斗罗大陆2：绝世唐门">斗罗大陆2：绝世唐门</a>
+          <span class="desc">第173话</span>
+        </div>
+      </li>
+    </ul>
+  </body>
+</html>
+''';
+
+      final executor = _FakeExecutor([searchHtml]);
+      final legacyEngine = RuleEngine(
+        requestExecutor: executor,
+        logFailures: false,
+      );
+      final engine = MediaRuleEngine(legacyEngine: legacyEngine);
+
+      // Legacy v8-style rule matching DM84's XPath shape.
+      final rule = MediaRule(
+        version: '9',
+        id: 'dm84',
+        name: 'DM84',
+        baseUrl: 'https://dmbus.cc/',
+        search: RuleSearch(
+          mode: 'xpath',
+          url: 'https://dmbus.cc/s----------.html?wd=@keyword',
+          itemXPath: RuleSearchItemXPath(
+            itemXPath: '//ul/li',
+            titleXPath: './/div/a[2]',
+            detailUrlXPath: './/div/a[2]/@href',
+          ),
+        ),
+        episodes: RuleEpisodes(mode: 'xpath'),
+      );
+
+      final result = await engine.search(rule, '斗罗大陆');
+
+      expect(result.items, hasLength(1));
+      expect(result.items.first.title, '斗罗大陆2：绝世唐门');
+      // The poster comes from the data-bg attribute of the cover link.
+      expect(
+          result.items.first.cover, 'https://puui.qpic.cn/vcover_vt_pic/0/xyz/260');
+    });
+
     test('search throws NoResultException for empty results', () async {
       final executor = _FakeExecutor(['<html><body>no results</body></html>']);
       final legacyEngine = RuleEngine(
