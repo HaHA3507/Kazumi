@@ -7,6 +7,7 @@ import 'package:kazumi/modules/media/media_rule.dart';
 import 'package:kazumi/plugins/api_rule_config.dart';
 import 'package:kazumi/services/media/media_rule_models.dart';
 import 'package:kazumi/services/plugin/rule_engine.dart' as legacy;
+import 'package:kazumi/services/plugin/rule_engine_models.dart';
 import 'package:kazumi/utils/episode_url.dart';
 import 'package:xpath_selector/xpath_selector.dart';
 import 'package:xpath_selector_html_parser/xpath_selector_html_parser.dart';
