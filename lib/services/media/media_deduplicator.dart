@@ -44,8 +44,10 @@ class MediaDeduplicator {
 
   /// Deduplicates a flat list of [MediaItem]s into groups.
   ///
-  /// Returns a list of [DeduplicatedMediaItem]s sorted by group size
-  /// (largest groups first), then by title.
+  /// Returns a list of [DeduplicatedMediaItem]s in first-seen order: groups
+  /// keep the position of their first occurrence, so the original document
+  /// order of the source results (e.g. the site's relevance ranking) is
+  /// preserved.
   List<DeduplicatedMediaItem> deduplicate(List<MediaItem> items) {
     final groups = <String, List<MediaItem>>{};
 
@@ -54,22 +56,14 @@ class MediaDeduplicator {
       groups.putIfAbsent(key, () => []).add(item);
     }
 
-    final result = <DeduplicatedMediaItem>[];
-    for (final group in groups.values) {
-      result.add(DeduplicatedMediaItem(
-        primary: _pickBest(group),
-        variants: group,
-      ));
-    }
-
-    // Sort: groups with more sources first, then by title.
-    result.sort((a, b) {
-      final sourceCompare = b.variants.length.compareTo(a.variants.length);
-      if (sourceCompare != 0) return sourceCompare;
-      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-    });
-
-    return result;
+    // Dart maps iterate in insertion order, which is the first-seen order.
+    return [
+      for (final group in groups.values)
+        DeduplicatedMediaItem(
+          primary: _pickBest(group),
+          variants: group,
+        ),
+    ];
   }
 
   /// Picks the best representative item from a group.

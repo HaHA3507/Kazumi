@@ -96,7 +96,7 @@ void main() {
       expect(result.first.primary.cover, 'cover.jpg');
     });
 
-    test('sorts by group size (largest first)', () {
+    test('preserves first-seen order regardless of group size', () {
       final items = [
         MediaItem(id: 'a:1', title: 'Solo', sourceId: 'a'),
         MediaItem(id: 'b:1', title: 'Group', sourceId: 'b'),
@@ -106,10 +106,12 @@ void main() {
 
       final result = dedup.deduplicate(items);
 
-      // 'Group' has 3 sources, should be first.
-      expect(result.first.title, 'Group');
-      expect(result.first.variants.length, 3);
-      expect(result.last.title, 'Solo');
+      // Groups keep the position of their first occurrence; the document
+      // order of the source results is not reshuffled by group size.
+      expect(result.first.title, 'Solo');
+      expect(result.first.variants.length, 1);
+      expect(result.last.title, 'Group');
+      expect(result.last.variants.length, 3);
     });
 
     test('handles empty input', () {
